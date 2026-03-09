@@ -55,6 +55,11 @@ const HSN_CATEGORIES: HsnCategory[] = [
         name: 'Miscellaneous Services',
         description: 'Catch-all for any other non-physical service charges not covered elsewhere (SAC code).',
     },
+    {
+        code: '996812',
+        name: 'Shipping and Delivery Services',
+        description: 'Delivery charges, shipping, and Cash on Delivery (COD) services.',
+    },
 ];
 
 interface LineItemRowProps {

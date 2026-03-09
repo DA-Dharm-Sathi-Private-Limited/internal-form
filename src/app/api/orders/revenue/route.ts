@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
                 revenueMap[name] = { totalRevenue: 0, orders: [] };
             }
 
-            // Sum item_total for each line item in this order
-            const items = (order as Record<string, unknown>).invoiceItems as Array<{ item_total?: number }> | undefined;
+            // Sum final_price (tax-inclusive) for each line item in this order
+            const items = (order as Record<string, unknown>).invoiceItems as Array<{ item_total?: number, final_price?: number }> | undefined;
             let orderTotal = 0;
             if (items && Array.isArray(items)) {
                 for (const item of items) {
-                    orderTotal += item.item_total || 0;
+                    orderTotal += item.final_price || item.item_total || 0;
                 }
             }
 

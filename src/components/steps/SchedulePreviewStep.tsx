@@ -405,9 +405,23 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
     return (
         <div className="form-section animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="section-title">
-                <span className="section-icon">🔍</span> Confirm Shipping
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="section-title mb-0">
+                    <span className="section-icon">🔍</span> Confirm Shipping
+                </h3>
+                <button className="btn btn-secondary py-1.5 px-4 text-sm font-semibold" onClick={onPrev} disabled={submitting}>
+                    🡨 Back
+                </button>
+            </div>
+
+            {/* Order Identity info */}
+            <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex flex-wrap gap-x-8 gap-y-2">
+                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Order ID:</span> {formData.orderId}</div>
+                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Customer Name:</span> {formData.customer_name}</div>
+                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Payment Mode:</span> {formData.payment_mode || formData.plannedShipments?.[0]?.payment_mode || 'Prepaid'}</div>
+                </div>
+            </div>
 
             {errorMsg && (
                 <div className="form-error">
@@ -735,9 +749,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
             )}
 
             <div className="mt-8 flex justify-between">
-                <button className="btn btn-secondary" onClick={onPrev} disabled={submitting}>
-                    🡨 Back
-                </button>
+                <div></div>
                 <button
                     className="btn btn-submit w-auto px-8"
                     onClick={handleConfirm}

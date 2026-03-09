@@ -62,6 +62,8 @@ export const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
     '999591': { inter: 'NO_TAX', intra: 'NO_TAX' },
     // 0% — Miscellaneous Services
     '999799': { inter: 'NO_TAX', intra: 'NO_TAX' },
+    // 18% — Delivery and COD Charges
+    '996812': { inter: '3355221000000032375', intra: '3355221000000032451' },
 };
 
 // HSN → tax rate percentage (for display / reverse-calculation)
@@ -75,6 +77,7 @@ export const HSN_TAX_RATES: Record<string, number> = {
     '39269090': 3,
     '999591': 0,
     '999799': 0,
+    '996812': 18,
 };
 
 // 18% tax IDs used for shipping/COD charge line items

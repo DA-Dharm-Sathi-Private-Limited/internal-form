@@ -12,6 +12,7 @@ interface InvoiceItem {
     quantity?: number;
     rate?: number;
     item_total?: number;
+    final_price?: number;
     tax_percentage?: number;
     hsn_or_sac?: string;
     carat_size?: string;
@@ -68,7 +69,7 @@ function getStatusLabel(status?: string): string {
     switch (status) {
         case 'PENDING_SHIPPING': return 'Pending';
         case 'PARTIALLY_SHIPPED': return 'Partial';
-        case 'SHIPPED': return 'Shipped';
+        case 'SHIPPED': return 'Scheduled';
         case 'SELF_SHIPPED': return 'Self-Shipped';
         default: return status || '—';
     }
@@ -168,7 +169,7 @@ export default function TrackRevenue() {
 
     function getOrderTotal(order: OrderData): number {
         if (!order.invoiceItems) return 0;
-        return order.invoiceItems.reduce((s, i) => s + (i.item_total || 0), 0);
+        return order.invoiceItems.reduce((s, i) => s + (i.final_price || i.item_total || 0), 0);
     }
 
     function toggleOrderExpand(orderId: string, e: React.MouseEvent) {
@@ -518,7 +519,7 @@ export default function TrackRevenue() {
                                                                         </td>
                                                                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.quantity ?? '—'}</td>
                                                                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.rate != null ? formatCurrency(item.rate) : '—'}</td>
-                                                                        <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{item.item_total != null ? formatCurrency(item.item_total) : '—'}</td>
+                                                                        <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{item.final_price != null ? formatCurrency(item.final_price) : (item.item_total != null ? formatCurrency(item.item_total) : '—')}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>

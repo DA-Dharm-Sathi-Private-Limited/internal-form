@@ -32,6 +32,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             tax_id: taxId,
             tax_amount: taxAmount,
             item_total: preTaxRate,
+            hsn_or_sac: '996812',
             zoho_item_id: '__system__', // tells invoice route to skip catalog creation
         };
     };
@@ -119,10 +120,10 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                     country: formData.country,
                     pincode: formData.pincode,
                 },
-                // Persist the raw UI items, including optional descriptions,
+                // Persist the raw UI items with additional delivery items, including optional descriptions,
                 // so the schedule-order wizard can see them even though we
                 // no longer send description to Zoho.
-                invoiceItems: formData.invoice_items,
+                invoiceItems: finalInvoiceItems,
                 salespersonName: formData.salesperson_name,
                 paymentMode: formData.payment_mode || 'Prepaid',
                 status: formData.isSelfShipped ? 'SELF_SHIPPED' : 'PENDING_SHIPPING',

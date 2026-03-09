@@ -112,6 +112,21 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 /**
+ * Fetch a single invoice by ID from Zoho Billing.
+ */
+export async function getInvoice(invoiceId: string) {
+    const headers = await zohoHeaders();
+
+    const res = await fetch(`${ZOHO_API_BASE}/invoices/${invoiceId}`, {
+        method: 'GET',
+        headers,
+    });
+
+    const data = await res.json();
+    return { status: res.status, data };
+}
+
+/**
  * Fetch invoice PDF as an ArrayBuffer.
  */
 export async function getInvoicePdf(invoiceId: string): Promise<ArrayBuffer> {

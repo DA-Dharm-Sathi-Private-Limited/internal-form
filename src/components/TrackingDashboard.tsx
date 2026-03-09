@@ -464,6 +464,7 @@ export default function TrackingDashboard() {
                                 displayStatus = order.selfShipmentStatus || 'Order Created';
                                 statusClasses = 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30';
                             } else if (order.status) {
+                                if (displayStatus === 'SHIPPED') displayStatus = 'SCHEDULED';
                                 displayStatus = displayStatus.length > 15 ? displayStatus.substring(0, 15) + '...' : displayStatus;
                                 statusClasses = getStatusColor(order.status);
                             }
