@@ -1,7 +1,6 @@
-import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import { config } from 'dotenv';
+config({ path: '../.env.local' });
 
-import mongoose from 'mongoose';
 import Order from '../src/models/Order';
 import { getInvoice } from '../src/lib/zoho';
 import connectDB from '../src/lib/mongodb';
@@ -10,8 +9,9 @@ async function main() {
     console.log('Connecting to database...');
     await connectDB();
 
-    console.log('Fetching all orders from database...');
-    const orders = await Order.find({}).lean();
+    console.log('Fetching March orders from database...');
+    const startOfMonth = new Date(new Date().getFullYear(), 2, 1); // March 1st
+    const orders = await Order.find({ createdAt: { $gte: startOfMonth } }).lean();
     console.log(`Found ${orders.length} orders.`);
 
     let updatedCount = 0;
@@ -63,7 +63,12 @@ async function main() {
 
             await Order.updateOne(
                 { _id: order._id },
-                { $set: { invoiceItems: mappedItems } }
+                {
+                    $set: {
+                        invoiceItems: mappedItems,
+                        salespersonName: zohoRes.data.invoice.salesperson_name || ''
+                    }
+                }
             );
 
             process.stdout.write(`OK (Items: ${mappedItems.length})\n`);
