@@ -33,6 +33,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 width: sh.width ?? formData.width ?? 10,
                 height: sh.height ?? formData.height ?? 10,
                 products_desc: sh.products_desc ?? formData.products_desc ?? '',
+                cod_amount: sh.cod_amount,
             }))
             : [
                 {
@@ -49,6 +50,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                     width: formData.width || 10,
                     height: formData.height || 10,
                     products_desc: formData.products_desc || '',
+                    cod_amount: undefined,
                 },
             ]
     );
@@ -115,6 +117,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                     width: formData.width || 10,
                     height: formData.height || 10,
                     products_desc: formData.products_desc || '',
+                    cod_amount: undefined,
                 },
             ];
         });
@@ -277,7 +280,9 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
                     payment_mode: sh.payment_mode,
                     total_amount: Number(resolvedFinalPrice.toFixed(2)),
-                    cod_amount: sh.payment_mode === 'COD' ? Number(resolvedFinalPrice.toFixed(2)) : 0,
+                    cod_amount: sh.payment_mode === 'COD' 
+                        ? (sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : Number(resolvedFinalPrice.toFixed(2))) 
+                        : 0,
                     products_desc: sh.products_desc || "Spiritual Items",
                     quantity: "1",
                     pickup_location: sh.warehouse || (formData.warehouse as string),
@@ -443,6 +448,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                 {anyDescriptions && <th className="px-2 py-2 font-semibold">Description</th>}
                                 <th className="px-2 py-2 font-semibold text-center">Price</th>
                                 <th className="px-2 py-2 font-semibold text-center">Qty</th>
+                                <th className="px-2 py-2 font-semibold text-center">Total</th>
                                 <th className="px-2 py-2 rounded-r-lg font-semibold text-center">Allocated</th>
                             </tr>
                         </thead>
@@ -460,6 +466,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                         )}
                                         <td className="px-2 py-2.5 text-center">₹{perUnitTotal.toFixed(2)}</td>
                                         <td className="px-2 py-2.5 text-center">{it.quantity}</td>
+                                        <td className="px-2 py-2.5 text-center font-medium">₹{(perUnitTotal * it.quantity).toFixed(2)}</td>
                                         <td className="px-2 py-2.5 text-center">
                                             <span className={getAllocatedQtyForLine(idx) === it.quantity ? 'text-green-500' : 'text-orange-400'}>
                                                 {getAllocatedQtyForLine(idx)}/{it.quantity}
@@ -582,6 +589,18 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                         </label>
                                     </div>
                                 </div>
+                                {sh.payment_mode === 'COD' && (
+                                    <div className="form-group">
+                                        <label>Custom COD Amount (Optional)</label>
+                                        <input
+                                            className="form-input"
+                                            type="number"
+                                            value={sh.cod_amount ?? ''}
+                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, cod_amount: e.target.value === '' ? '' : Number(e.target.value) } : s))}
+                                            placeholder="Leave empty for auto-calculate"
+                                        />
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label>Fragile Shipment?</label>
                                     <div className="flex items-center gap-2 h-10">
@@ -647,9 +666,10 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                         <tr>
                                             <th className="px-2 py-2 font-semibold">Item</th>
                                             <th className="px-2 py-2 font-semibold text-center">Price</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Qty</th>
-                                            <th className="px-2 py-2 font-semibold text-center">This shipment</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Remaining</th>
+                                            <th className="px-2 py-2 font-semibold text-center">Order Qty</th>
+                                            <th className="px-2 py-2 font-semibold text-center">Shipment Qty</th>
+                                            <th className="px-2 py-2 font-semibold text-center">Shipment Total</th>
+                                            <th className="px-2 py-2 font-semibold text-center">Remaining Qty</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a38]">
@@ -667,7 +687,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                                     <td className="px-2 py-2.5 text-center">
                                                         <input
                                                             type="number"
-                                                            className="form-input w-24 text-center py-1"
+                                                            className="form-input w-24 text-center py-1 mx-auto block"
                                                             min={0}
                                                             max={remaining}
                                                             value={thisQty}
@@ -677,6 +697,9 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                                             }}
                                                         />
                                                     </td>
+                                                    <td className="px-2 py-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">
+                                                        ₹{(perUnitTotal * thisQty).toFixed(2)}
+                                                    </td>
                                                     <td className="px-2 py-2.5 text-center text-xs text-gray-500 dark:text-gray-400">
                                                         {remaining - thisQty}
                                                     </td>
@@ -684,6 +707,19 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                             );
                                         })}
                                     </tbody>
+                                    <tfoot>
+                                        <tr className="bg-gray-50 dark:bg-[#1c1c28] border-t border-gray-200 dark:border-[#2a2a38] font-semibold text-gray-900 dark:text-gray-100">
+                                            <td colSpan={4} className="px-2 py-3 text-right">Shipment Total Value:</td>
+                                            <td className="px-2 py-3 text-center text-emerald-600 dark:text-emerald-400">
+                                                ₹{formData.invoice_items.reduce((acc, it, lineIndex) => {
+                                                    const thisQty = sh.items.find((x) => x.lineIndex === lineIndex)?.quantity || 0;
+                                                    const perUnitTotal = it.final_price ?? (((it.item_total || 0) + (it.tax_amount || 0)) / (it.quantity || 1));
+                                                    return acc + (perUnitTotal * thisQty);
+                                                }, 0).toFixed(2)}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>
