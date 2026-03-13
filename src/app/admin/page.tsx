@@ -103,8 +103,7 @@ export default function AdminPage() {
                     </div>
 
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        Deleting an order removes it from the database and attempts to delete the invoice from Zoho Billing.
-                        Zoho only allows deleting <strong>Draft</strong> invoices — Sent/Paid invoices may need manual voiding.
+                        Deleting an order removes it from the database and attempts to void the invoice in Zoho Billing.
                     </p>
 
                     {orders.length === 0 ? (

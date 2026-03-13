@@ -173,6 +173,7 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
                 is_discount_before_tax: false,
                 notes: formData.notes,
                 terms: formData.terms,
+                payment_mode: formData.payment_mode,
             };
 
             const invoiceRes = await fetch('/api/invoices', {
@@ -189,6 +190,31 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
 
             const createdInvoiceId = invoiceData.invoice.invoice_id;
             const createdInvoiceNumber = invoiceData.invoice.invoice_number;
+
+            // 1.1 Action: Record Payment for Prepaid Invoices
+            if (formData.payment_mode === 'Prepaid') {
+                const paymentPayload = {
+                    customer_id: invoiceData.invoice.customer_id,
+                    amount: invoiceData.invoice.total,
+                    date: invoiceData.invoice.date,
+                    invoice_id: createdInvoiceId,
+                    payment_mode: 'others',
+                    description: `Payment recorded for Prepaid Invoice ${createdInvoiceNumber}`,
+                    reference_number: createdInvoiceNumber,
+                };
+
+                const paymentRes = await fetch('/api/payments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(paymentPayload)
+                });
+
+                if (!paymentRes.ok) {
+                    const paymentData = await paymentRes.json();
+                    console.error('Payment recording failed:', paymentData.error);
+                    // We alert but don't stop the flow since the invoice exists.
+                }
+            }
 
             // 2. Create Delhivery Shipment
             // Pull the exact total calculate from Zoho to ensure taxes match 100% on the shipping label

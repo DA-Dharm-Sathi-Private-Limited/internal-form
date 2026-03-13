@@ -112,6 +112,21 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 /**
+ * Void an invoice via Zoho Billing API.
+ */
+export async function voidInvoice(invoiceId: string) {
+    const headers = await zohoHeaders();
+
+    const res = await fetch(`${ZOHO_API_BASE}/invoices/${invoiceId}/void`, {
+        method: 'POST',
+        headers,
+    });
+
+    const data = await res.json();
+    return { status: res.status, data };
+}
+
+/**
  * Fetch a single invoice by ID from Zoho Billing.
  */
 export async function getInvoice(invoiceId: string) {
@@ -224,6 +239,49 @@ export async function updateCustomer(customerId: string, body: Record<string, un
         method: 'PUT',
         headers,
         body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    return { status: res.status, data };
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+/**
+ * Record a payment for an invoice via Zoho Billing API.
+ */
+export async function createPayment(body: {
+    customer_id: string;
+    payment_mode: string;
+    amount: number;
+    date: string;
+    invoice_id: string;
+    description?: string;
+    reference_number?: string;
+}) {
+    const headers = await zohoHeaders();
+
+    const payload = {
+        customer_id: body.customer_id,
+        payment_mode: body.payment_mode,
+        amount: body.amount,
+        date: body.date,
+        description: body.description,
+        reference_number: body.reference_number,
+        invoices: [
+            {
+                invoice_id: body.invoice_id,
+                amount_applied: body.amount,
+            },
+        ],
+    };
+
+    const res = await fetch(`${ZOHO_API_BASE}/payments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
     });
 
     const data = await res.json();

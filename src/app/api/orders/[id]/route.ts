@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
-import { deleteInvoice } from '@/lib/zoho';
+import { voidInvoice } from '@/lib/zoho';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -99,17 +99,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
         }
 
-        // 1. Delete invoice from Zoho (best-effort — proceed even if Zoho fails)
-        let zohoDeleted = false;
+        // 1. Void invoice in Zoho (best-effort — proceed even if Zoho fails)
+        let zohoVoided = false;
         if (order.zohoInvoiceId) {
             try {
-                const result = await deleteInvoice(order.zohoInvoiceId);
-                zohoDeleted = result.status === 200;
-                if (!zohoDeleted) {
-                    console.warn(`Zoho invoice deletion returned ${result.status}:`, result.data?.message);
+                const result = await voidInvoice(order.zohoInvoiceId);
+                zohoVoided = result.status === 200;
+                if (!zohoVoided) {
+                    console.warn(`Zoho invoice voiding returned ${result.status}:`, result.data?.message);
                 }
             } catch (err) {
-                console.warn('Failed to delete invoice from Zoho:', err);
+                console.warn('Failed to void invoice in Zoho:', err);
             }
         }
 
@@ -118,10 +118,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
         return NextResponse.json({
             success: true,
-            zohoDeleted,
-            message: zohoDeleted
-                ? 'Order and Zoho invoice deleted successfully'
-                : 'Order deleted from database. Zoho invoice may need manual deletion (it might be in Sent/Paid status).',
+            zohoVoided,
+            message: zohoVoided
+                ? 'Order deleted and Zoho invoice voided successfully'
+                : 'Order deleted from database. Zoho invoice may need manual voiding.',
         });
     } catch (error: unknown) {
         console.error('Error deleting order:', error);

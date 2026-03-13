@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createInvoice, createZohoItem } from '@/lib/zoho';
+import { createInvoice, createZohoItem, createPayment } from '@/lib/zoho';
 import { getCorrectTaxId } from '@/lib/tax';
 
 export async function POST(request: NextRequest) {
@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
         if (body.custom_fields) payload.custom_fields = body.custom_fields;
 
         const result = await createInvoice(payload);
+        console.log('Result from Zoho createInvoice:', JSON.stringify(result.data, null, 2));
 
         if (result.status !== 200 && result.status !== 201) {
             console.error('Zoho Invoice Creation Failed:', JSON.stringify(result.data, null, 2));
