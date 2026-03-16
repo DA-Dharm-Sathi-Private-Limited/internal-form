@@ -56,27 +56,23 @@ export async function POST(
             );
         }
 
-        // Build Zoho line items — always derive rate from final_price to avoid stale values.
+        // Build Zoho line items.
+        // Rate = item_total / quantity — this is the pre-tax per-unit rate stored in MongoDB,
+        // and is the most reliable source. final_price is tax-inclusive (per unit) and
+        // item.price can be stale from an earlier Zoho sync.
         const zohoLineItems = items.map((item) => {
-            const finalPrice = typeof item.final_price === 'number' ? item.final_price : 0;
-            const taxPct = typeof item.tax_percentage === 'number' ? item.tax_percentage : 0;
-            const storedPrice = typeof item.price === 'number' ? item.price : 0;
-
-            let pretaxRate: number = storedPrice;
-            if (finalPrice > 0) {
-                pretaxRate = taxPct > 0
-                    ? finalPrice / (1 + taxPct / 100)
-                    : finalPrice;
-            }
+            const itemTotal = typeof item.item_total === 'number' ? item.item_total : 0;
+            const qty = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
+            const pretaxRate = Math.round((itemTotal / qty) * 100) / 100;
 
             const line: Record<string, unknown> = {
                 name: item.name,
-                rate: Math.round(pretaxRate * 100) / 100,
+                rate: pretaxRate,
                 quantity: item.quantity,
             };
 
             if (item.hsn_or_sac) line.hsn_or_sac = item.hsn_or_sac;
-            if (item.item_id) line.item_id = item.item_id;   // zoho catalog item_id
+            if (item.item_id) line.item_id = item.item_id;
             if (item.description) line.description = item.description;
             if (item.tax_id && item.tax_id !== 'NO_TAX') line.tax_id = item.tax_id;
             if (typeof item.discount === 'number') line.discount = item.discount;
@@ -101,12 +97,7 @@ export async function POST(
             );
         }
 
-        // Clear cached invoiceTotal so the revenue dashboard re-fetches from Zoho
-        await Order.updateOne(
-            { zohoInvoiceId },
-            { $unset: { invoiceTotal: '' } }
-        );
-
+        // NOTE: do NOT clear invoiceTotal here — it was recalculated from DB and is correct.
         console.log(`[resync-zoho] Successfully synced ${zohoInvoiceId}`);
 
         return NextResponse.json({
