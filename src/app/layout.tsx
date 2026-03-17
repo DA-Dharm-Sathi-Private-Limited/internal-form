@@ -18,6 +18,16 @@ export const metadata: Metadata = {
   icons: {
     icon: '/hp_logo.png',
   },
+  openGraph: {
+    images: [
+      {
+        url: '/hp_logo.png',
+        width: 800,
+        height: 600,
+        alt: 'HP Logo',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
