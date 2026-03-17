@@ -12,6 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'Invoice Generator — Internal Sales Tool',
   description:
     'Internal invoice generation form for the sales team. Create and download invoices via Zoho Billing.',

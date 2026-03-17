@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
                 const cleaned: Record<string, unknown> = {
                     name: itemName,
                     quantity: Number(item.quantity) || 1,
-                    price: Number(item.price) || 0,
+                    price: Number(Number(item.price).toFixed(2)) || 0,
                 };
 
                 // Link to catalog product if ID is known (and not a system charge)

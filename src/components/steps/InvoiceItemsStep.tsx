@@ -76,18 +76,17 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
         const taxId = merged.tax_id ?? '';
 
         let preTaxRate = finalPricePerUnit;
-        let taxAmount = 0;
+        let totalTaxAmount = 0;
 
         if (taxId && taxId !== 'NO_TAX') {
             const foundTax = taxes.find(t => t.tax_id === taxId);
             if (foundTax && foundTax.tax_percentage > 0) {
-                preTaxRate = finalPricePerUnit / (1 + foundTax.tax_percentage / 100);
-                taxAmount = finalPricePerUnit - preTaxRate;
+                preTaxRate = Math.round((finalPricePerUnit / (1 + foundTax.tax_percentage / 100)) * 100) / 100;
+                const lineTotal = preTaxRate * qty;
+                totalTaxAmount = Math.round(lineTotal * (foundTax.tax_percentage / 100) * 100) / 100;
             }
         }
 
-        // Multiply tax amount by quantity for the line total
-        const totalTaxAmount = taxAmount * qty;
         const itemTotal = preTaxRate * qty; // pre-tax subtotal for this line
 
         return {

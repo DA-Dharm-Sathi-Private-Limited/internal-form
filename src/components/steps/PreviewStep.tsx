@@ -25,8 +25,12 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
     /** Build a shipping/COD line item with 18% GST inclusive pricing. */
     const buildChargeItem = (name: string, finalPrice: number, description: string) => {
         const taxId = get18PctTaxId(isInterstate);
-        const preTaxRate = taxId !== 'NO_TAX' ? finalPrice / 1.18 : finalPrice;
-        const taxAmount = taxId !== 'NO_TAX' ? finalPrice - preTaxRate : 0;
+        let preTaxRate = finalPrice;
+        let taxAmount = 0;
+        if (taxId !== 'NO_TAX') {
+            preTaxRate = Math.round((finalPrice / 1.18) * 100) / 100;
+            taxAmount = Math.round(preTaxRate * 0.18 * 100) / 100;
+        }
         return {
             name,
             description,
@@ -43,21 +47,29 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
     const deliveryItem = formData.include_shipping ? buildChargeItem('Delivery Charges', 100, 'Shipping and handling') : null;
     const codItem = formData.include_cod ? buildChargeItem('COD Charges', 50, 'Cash on Delivery fee') : null;
 
-    const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
-    let totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
+    let itemsSubtotal = 0;
+    let itemsTax = 0;
 
-    const itemsSubtotal = subtotal;
-    const itemsTax = totalTax;
+    formData.invoice_items.forEach(item => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number((item.price || 0).toFixed(2));
+        const tax = Number((item.tax_amount || 0).toFixed(2));
+        
+        itemsSubtotal += price * qty;
+        itemsTax += tax * qty;
+    });
+
     const finalItemsPrice = itemsSubtotal + itemsTax;
+
+    let totalTax = itemsTax;
+    if (deliveryItem) totalTax += deliveryItem.tax_amount;
+    if (codItem) totalTax += codItem.tax_amount;
 
     const discountInput = Number(formData.discount) || 0;
     const discountFormat = formData.discount_format_type || 'fixed';
     const appliedDiscountAmount = discountFormat === 'percentage'
         ? (finalItemsPrice * discountInput) / 100
         : discountInput;
-
-    if (deliveryItem) totalTax += deliveryItem.tax_amount;
-    if (codItem) totalTax += codItem.tax_amount;
 
     const shippingCharge = deliveryItem ? deliveryItem.price : 0;
     const codCharge = codItem ? codItem.price : 0;
