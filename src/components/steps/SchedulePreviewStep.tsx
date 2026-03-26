@@ -38,7 +38,8 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
             : [
                 {
                     id: 'shipment-1',
-                    vendor: 'DELHIVERY',
+                    vendor: formData.warehouse as string,
+                    deliveryPartner: 'Delhivery',
                     warehouse: formData.warehouse as string,
                     items: formData.invoice_items.map((it, idx) => ({ lineIndex: idx, quantity: it.quantity })),
                     isSelfShipment: false,
@@ -98,14 +99,15 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         );
     };
 
-    const addShipment = (kind: 'DELHIVERY' | 'SELF') => {
+    const addShipment = (kind: 'DELHIVERY' | 'SELF' | 'DTDC') => {
         setPlannedShipments((prev) => {
             const nextId = `shipment-${prev.length + 1}`;
             return [
                 ...prev,
                 {
                     id: nextId,
-                    vendor: kind === 'SELF' ? 'SELF' : 'DELHIVERY',
+                    vendor: formData.warehouse as string,
+                    deliveryPartner: kind === 'SELF' ? 'SELF' : kind === 'DTDC' ? 'DTDC' : 'Delhivery',
                     warehouse: formData.warehouse as string,
                     items: formData.invoice_items.map((it, idx) => ({ lineIndex: idx, quantity: 0 })),
                     isSelfShipment: kind === 'SELF',
@@ -223,7 +225,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
             // Validate required shipping fields per Delhivery shipment
             for (let i = 0; i < plannedShipments.length; i++) {
                 const sh = plannedShipments[i];
-                if (sh.isSelfShipment || sh.vendor === 'SELF') continue;
+                if (sh.isSelfShipment || sh.deliveryPartner === 'SELF' || sh.deliveryPartner === 'DTDC') continue;
                 const effectiveItems = sh.items.filter((it) => it.quantity > 0);
                 if (effectiveItems.length === 0) continue;
                 if (!sh.weight || sh.weight <= 0) {
@@ -236,6 +238,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
             const createdShipmentsForOrder: {
                 vendor: string;
+                deliveryPartner?: string;
                 waybill?: string;
                 shippingCost: number;
                 warehouse: string;
@@ -245,10 +248,10 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
             const allWaybills: string[] = [];
 
             // Prepare all shipment payloads for backend
-            // Prepare and send shipments one by one
+            // Prepare and send shipments one by one (Only Delhivery)
             const delhiveryShipments = plannedShipments
                 .map((sh, index) => ({ sh, index }))
-                .filter(({ sh }) => !(sh.isSelfShipment || sh.vendor === 'SELF'));
+                .filter(({ sh }) => !(sh.isSelfShipment || sh.deliveryPartner === 'SELF' || sh.deliveryPartner === 'DTDC'));
 
             for (const { sh, index } of delhiveryShipments) {
                 const effectiveItems = sh.items.filter((it) => it.quantity > 0);
@@ -332,9 +335,24 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 }
 
                 createdShipmentsForOrder.push({
-                    vendor: sh.vendor || 'DELHIVERY',
+                    vendor: sh.warehouse || sh.vendor || 'DELHIVERY',
+                    deliveryPartner: sh.deliveryPartner || 'Delhivery',
                     waybill: generatedWaybill,
                     shippingCost: shippingCost || 0,
+                    warehouse: sh.warehouse || (formData.warehouse as string),
+                    items: effectiveItems,
+                });
+            }
+
+            // Process DTDC shipments
+            const dtdcShipments = plannedShipments.filter((sh) => sh.deliveryPartner === 'DTDC');
+            for (const sh of dtdcShipments) {
+                const effectiveItems = sh.items.filter((it) => it.quantity > 0);
+                if (effectiveItems.length === 0) continue;
+                createdShipmentsForOrder.push({
+                    vendor: sh.warehouse || sh.vendor,
+                    deliveryPartner: 'DTDC',
+                    shippingCost: 0,
                     warehouse: sh.warehouse || (formData.warehouse as string),
                     items: effectiveItems,
                 });
@@ -343,11 +361,12 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
             // Add self shipments
             plannedShipments.forEach((sh) => {
-                if (sh.isSelfShipment || sh.vendor === 'SELF') {
+                if (sh.isSelfShipment || sh.deliveryPartner === 'SELF') {
                     const effectiveItems = sh.items.filter((it) => it.quantity > 0);
                     if (effectiveItems.length === 0) return;
                     createdShipmentsForOrder.push({
                         vendor: 'SELF',
+                        deliveryPartner: 'SELF',
                         shippingCost: 0,
                         warehouse: sh.warehouse,
                         items: effectiveItems,
@@ -375,8 +394,13 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 if (shipped < item.quantity) allShipped = false;
             });
 
-            const nextStatus = allShipped ? 'SHIPPED' : anyShipped ? 'PARTIALLY_SHIPPED' : 'PENDING_SHIPPING';
-            const anySelf = createdShipmentsForOrder.some((s) => s.vendor === 'SELF');
+            let nextStatus = allShipped ? 'SHIPPED' : anyShipped ? 'PARTIALLY_SHIPPED' : 'PENDING_SHIPPING';
+            const anySelf = createdShipmentsForOrder.some((s) => s.deliveryPartner === 'SELF');
+            const anyDTDC = createdShipmentsForOrder.some((s) => s.deliveryPartner === 'DTDC');
+
+            if (anyDTDC) {
+                nextStatus = 'DTDC_SCHEDULED';
+            }
 
             // Persist shipments & status to the order
             await fetch(`/api/orders/${formData.orderId}`, {
@@ -495,6 +519,9 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                         <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('DELHIVERY')}>
                             + Delhivery Shipment
                         </button>
+                        <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('DTDC')}>
+                            + DTDC Shipment
+                        </button>
                         <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('SELF')}>
                             + Self Shipped
                         </button>
@@ -509,8 +536,8 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                     <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">
                                         Shipment {idx + 1}
                                     </span>
-                                    <span className={sh.isSelfShipment || sh.vendor === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
-                                        {(sh.isSelfShipment || sh.vendor === 'SELF') ? 'SELF SHIPPED' : 'DELHIVERY'}
+                                    <span className={sh.isSelfShipment || sh.deliveryPartner === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
+                                        {(sh.isSelfShipment || sh.deliveryPartner === 'SELF') ? 'SELF SHIPPED' : sh.deliveryPartner === 'DTDC' ? 'DTDC' : 'DELHIVERY'}
                                     </span>
                                 </div>
                                 {plannedShipments.length > 1 && (
@@ -521,26 +548,39 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                             </div>
 
                             <div className="form-grid-2">
+                                {!sh.isSelfShipment && sh.deliveryPartner !== 'SELF' && (
+                                    <div className="form-group">
+                                        <label>Delivery Partner</label>
+                                        <div className="flex gap-4 mt-1">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={sh.deliveryPartner === 'Delhivery'}
+                                                    onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, deliveryPartner: 'Delhivery' } : s))}
+                                                    className="accent-accent"
+                                                />
+                                                <span className="text-sm text-gray-700 dark:text-gray-200">Delhivery</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={sh.deliveryPartner === 'DTDC'}
+                                                    onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, deliveryPartner: 'DTDC' } : s))}
+                                                    className="accent-accent"
+                                                />
+                                                <span className="text-sm text-gray-700 dark:text-gray-200">DTDC</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="form-group">
-                                    <label>Vendor</label>
-                                    <input
-                                        className="form-input"
-                                        value={sh.vendor}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, vendor: v, isSelfShipment: v === 'SELF' } : s));
-                                        }}
-                                        placeholder={sh.isSelfShipment ? 'SELF' : 'e.g. DELHIVERY or vendor name'}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Warehouse</label>
+                                    <label>Vendor / Origin</label>
                                     <select
                                         className="form-input"
                                         value={sh.warehouse}
                                         onChange={(e) => {
                                             const w = e.target.value;
-                                            setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, warehouse: w } : s));
+                                            setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, warehouse: w, vendor: w } : s));
                                         }}
                                     >
                                         {DELHIIVERY_WAREHOUSES.map((w: string) => (
@@ -748,8 +788,8 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                 <div key={sh.id} className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-[#2a2a38] bg-gray-50 dark:bg-[#1c1c28]">
                                     <div className="flex items-center gap-4 mb-2">
                                         <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">Shipment {idx + 1}</span>
-                                        <span className={sh.isSelfShipment || sh.vendor === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
-                                            {(sh.isSelfShipment || sh.vendor === 'SELF') ? 'SELF SHIPPED' : sh.vendor}
+                                        <span className={sh.isSelfShipment || sh.deliveryPartner === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
+                                            {(sh.isSelfShipment || sh.deliveryPartner === 'SELF') ? 'SELF SHIPPED' : sh.deliveryPartner}
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap gap-4 mb-2">
@@ -766,6 +806,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                     <div className="flex flex-wrap gap-4 mb-2">
                                         <div><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> <span className="font-semibold text-gray-900 dark:text-white uppercase tracking-wide text-xs">{formData.city}, {formData.state} {formData.pincode}</span></div>
                                     </div>
+                                    {sh.deliveryPartner !== 'DTDC' && (
                                     <div className="mt-4 p-4 bg-linear-to-br from-indigo-50 to-white dark:from-[#1c1c28] dark:to-[#22222e] rounded-xl border border-indigo-100 dark:border-accent/30 shadow-sm relative overflow-hidden">
                                         <h5 className="text-xs uppercase text-accent mb-4 font-bold tracking-widest flex items-center gap-2">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -782,6 +823,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                             </div>
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

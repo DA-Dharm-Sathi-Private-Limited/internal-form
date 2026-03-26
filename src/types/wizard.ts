@@ -68,7 +68,8 @@ export interface CombinedFormData {
     // --- Schedule Order: planned shipment splits (UI only, not persisted) ---
     plannedShipments?: Array<{
         id: string;
-        vendor: string;
+        vendor: string; // warehouse/origin string
+        deliveryPartner: 'Delhivery' | 'DTDC' | 'SELF';
         warehouse: string;
         items: Array<{
             lineIndex: number;

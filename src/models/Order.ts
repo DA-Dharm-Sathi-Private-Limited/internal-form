@@ -77,8 +77,13 @@ const OrderSchema = new mongoose.Schema(
         // New: granular shipment records (self-shipped and carrier).
         shipments: [
             {
-                vendor: String, // e.g. 'SELF' or a Delhivery vendor/seller name
-                waybill: String, // optional for self-shipped
+                vendor: String, // Maps to Warehouse/Origin from vendors.json
+                deliveryPartner: {
+                    type: String,
+                    enum: ['Delhivery', 'DTDC', 'SELF'],
+                    default: 'Delhivery'
+                },
+                waybill: String, // optional for self-shipped / DTDC
                 shippingCost: {
                     type: Number,
                     default: 0,
@@ -99,7 +104,7 @@ const OrderSchema = new mongoose.Schema(
         // High-level order shipping status.
         status: {
             type: String,
-            enum: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED'],
+            enum: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED', 'DTDC_SCHEDULED'],
             default: 'PENDING_SHIPPING',
         },
         selfShipped: {
