@@ -14,8 +14,8 @@ interface Props {
 }
 
 export default function SchedulePreviewStep({ formData, updateForm, onNext, onPrev }: Props) {
-    const [shippingCost, setShippingCost] = useState<number | null>(null);
-    const [expectedTat, setExpectedTat] = useState<string | null>(null);
+    const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
+    const [expectedTats, setExpectedTats] = useState<Record<string, string>>({});
     const [loadingPreview, setLoadingPreview] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -134,43 +134,55 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
             setLoadingPreview(true);
             setErrorMsg('');
             try {
-                // 1. Fetch Shipping Cost
-                const costParams = new URLSearchParams({
-                    md: formData.shipping_mode === 'Express' ? 'E' : 'S',
-                    cgm: String(formData.weight),
-                    o_pin: '302001', // Example origin
-                    d_pin: formData.pincode,
-                    ss: 'Delivered',
-                    pt: formData.payment_mode === 'Prepaid' ? 'Pre-paid' : 'COD'
-                });
+                const newCosts: Record<string, number> = {};
+                const newTats: Record<string, string> = {};
 
-                const costRes = await fetch(`/api/delhivery/shipping-cost?${costParams.toString()}`);
-                if (costRes.ok) {
-                    const costData = await costRes.json();
-                    if (costData && costData.length > 0 && costData[0].total_amount) {
-                        setShippingCost(costData[0].total_amount);
+                // Fetch shipping cost & TAT per shipment
+                await Promise.all(plannedShipments.map(async (sh) => {
+                    try {
+                        // 1. Fetch Shipping Cost for this shipment
+                        const costParams = new URLSearchParams({
+                            md: sh.shipping_mode === 'Express' ? 'E' : 'S',
+                            cgm: String(sh.weight || formData.weight),
+                            o_pin: '302001',
+                            d_pin: formData.pincode,
+                            ss: 'Delivered',
+                            pt: (sh.payment_mode || formData.payment_mode) === 'Prepaid' ? 'Pre-paid' : 'COD'
+                        });
+
+                        const costRes = await fetch(`/api/delhivery/shipping-cost?${costParams.toString()}`);
+                        if (costRes.ok) {
+                            const costData = await costRes.json();
+                            if (costData && costData.length > 0 && costData[0].total_amount) {
+                                newCosts[sh.id] = costData[0].total_amount;
+                            }
+                        }
+
+                        // 2. Fetch Expected TAT for this shipment
+                        const tatParams = new URLSearchParams({
+                            origin_pin: '302001',
+                            destination_pin: formData.pincode,
+                            mot: sh.shipping_mode === 'Express' ? 'E' : 'S'
+                        });
+
+                        const tatRes = await fetch(`/api/delhivery/tat?${tatParams.toString()}`);
+                        if (tatRes.ok) {
+                            const tatData = await tatRes.json();
+                            if (tatData.data && typeof tatData.data.tat === 'number') {
+                                const expectedDate = new Date();
+                                expectedDate.setDate(expectedDate.getDate() + tatData.data.tat);
+                                newTats[sh.id] = expectedDate.toISOString();
+                            } else if (tatData.expected_delivery_date) {
+                                newTats[sh.id] = tatData.expected_delivery_date;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Failed to fetch preview for shipment ${sh.id}`, err);
                     }
-                }
+                }));
 
-                // 2. Fetch Expected TAT
-                const tatParams = new URLSearchParams({
-                    origin_pin: '302001',
-                    destination_pin: formData.pincode,
-                    mot: formData.shipping_mode === 'Express' ? 'E' : 'S'
-                });
-
-                const tatRes = await fetch(`/api/delhivery/tat?${tatParams.toString()}`);
-                if (tatRes.ok) {
-                    const tatData = await tatRes.json();
-                    if (tatData.data && typeof tatData.data.tat === 'number') {
-                        const expectedDate = new Date();
-                        expectedDate.setDate(expectedDate.getDate() + tatData.data.tat);
-                        setExpectedTat(expectedDate.toISOString());
-                    } else if (tatData.expected_delivery_date) {
-                        setExpectedTat(tatData.expected_delivery_date);
-                    }
-                }
-
+                setShippingCosts(newCosts);
+                setExpectedTats(newTats);
             } catch (err) {
                 console.error('Failed to fetch preview data', err);
             } finally {
@@ -179,7 +191,8 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         }
 
         fetchPreviewData();
-    }, [formData.shipping_mode, formData.weight, formData.pincode, formData.payment_mode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.pincode, JSON.stringify(plannedShipments.map(s => ({ id: s.id, sm: s.shipping_mode, w: s.weight, pm: s.payment_mode })))]);
 
     const saveWaybillToHistory = (waybill: string, orderId: string, consignee: string) => {
         try {
@@ -338,7 +351,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                     vendor: sh.warehouse || sh.vendor || 'DELHIVERY',
                     deliveryPartner: sh.deliveryPartner || 'Delhivery',
                     waybill: generatedWaybill,
-                    shippingCost: shippingCost || 0,
+                    shippingCost: shippingCosts[sh.id] || 0,
                     warehouse: sh.warehouse || (formData.warehouse as string),
                     items: effectiveItems,
                 });
@@ -815,11 +828,11 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                         <div className="space-y-3 relative z-10">
                                             <div className="flex justify-between items-center bg-white/50 dark:bg-black/20 p-2.5 rounded-lg">
                                                 <span className="text-gray-600 dark:text-gray-400 font-medium text-xs">Est. Shipping Cost</span>
-                                                <span className="font-bold text-gray-900 dark:text-white text-base">{shippingCost ? `₹${shippingCost}` : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
+                                                <span className="font-bold text-gray-900 dark:text-white text-base">{shippingCosts[sh.id] ? `₹${shippingCosts[sh.id]}` : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
                                             </div>
                                             <div className="flex justify-between items-center bg-white/50 dark:bg-black/20 p-2.5 rounded-lg">
                                                 <span className="text-gray-600 dark:text-gray-400 font-medium text-xs">Expected Delivery</span>
-                                                <span className="font-bold text-gray-900 dark:text-white text-base">{expectedTat ? new Date(expectedTat).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
+                                                <span className="font-bold text-gray-900 dark:text-white text-base">{expectedTats[sh.id] ? new Date(expectedTats[sh.id]).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
                                             </div>
                                         </div>
                                     </div>

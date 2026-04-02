@@ -140,7 +140,7 @@ async function convertInvoiceToOpen(token: string, invoiceId: string): Promise<b
 
     if (!res.ok) {
         const text = await res.text();
-        console.error(`     ✖ Failed to open invoice ${invoiceId}: ${text}`);
+        console.error(`✖ Failed to open invoice ${invoiceId}: ${text}`);
         return false;
     }
     return true;
