@@ -21,6 +21,7 @@ const emptyItem = (): InvoiceItem => ({
     description: '',
     quantity: 1,
     price: 0,
+    cost_price: 0,
     hsn_or_sac: '',
 });
 

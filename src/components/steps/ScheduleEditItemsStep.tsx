@@ -23,6 +23,7 @@ const emptyItem = (): InvoiceItem => ({
     tax_id: 'NO_TAX',
     tax_amount: 0,
     item_total: 0,
+    cost_price: 0,
 });
 
 export default function ScheduleEditItemsStep({ formData, updateForm, onNext, onPrev }: Props) {

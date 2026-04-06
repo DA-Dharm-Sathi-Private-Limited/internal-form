@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp / debug artifacts (prevent root clutter)
+*.log
+*.csv
+*.yml
+!amplify.yml
+*.txt
+!README.md
+temp_*
+test-*
+pincode_test*
+zoho-*
+zoho_*
+package-lock.json

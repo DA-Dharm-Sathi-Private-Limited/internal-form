@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         // Group rows by vendor
         const groupedRows: Record<string, string[]> = {};
 
-        // Generate headers matching sample-dtdc.csv
+        // Generate DTDC bulk upload CSV headers
         const headers = [
             'Customer Reference Number',
             'Consignment Number',

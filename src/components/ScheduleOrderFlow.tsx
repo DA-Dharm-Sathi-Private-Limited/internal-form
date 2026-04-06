@@ -69,6 +69,7 @@ export default function ScheduleOrderFlow() {
                 unit: typeof item.unit === 'string' ? item.unit as string : undefined,
                 carat_size: typeof item.carat_size === 'number' ? item.carat_size as number : undefined,
                 zoho_item_id: typeof item.zoho_item_id === 'string' ? item.zoho_item_id as string : undefined,
+                cost_price: typeof item.cost_price === 'number' ? item.cost_price as number : 0,
             };
         });
 
