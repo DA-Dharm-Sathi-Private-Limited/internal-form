@@ -39,6 +39,10 @@ const OrderSchema = new mongoose.Schema(
                 final_price: Number,
                 hsn_or_sac: String,
                 carat_size: String,
+                cost_price: {
+                    type: Number,
+                    required: true,
+                },
             }
         ],
         /**

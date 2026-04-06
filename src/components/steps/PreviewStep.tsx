@@ -41,6 +41,7 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
             tax_amount: taxAmount,
             item_total: preTaxRate,
             zoho_item_id: '__system__', // tells invoice route to skip catalog creation
+            cost_price: 0,
         };
     };
 

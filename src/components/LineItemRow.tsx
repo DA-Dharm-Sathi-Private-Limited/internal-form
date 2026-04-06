@@ -198,6 +198,25 @@ export default function LineItemRow({
                     />
                 </div>
 
+                <div className="line-item-field line-item-cost-price">
+                    <label>Cost Price (₹) *</label>
+                    <input
+                        type="number"
+                        className="form-input"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={item.cost_price || ''}
+                        onChange={(e) => {
+                            const raw = e.target.value;
+                            onChange(index, {
+                                cost_price: raw === '' ? 0 : Number(raw),
+                            });
+                        }}
+                        required
+                    />
+                </div>
+
                 <div className="line-item-field line-item-qty">
                     <label>Qty *</label>
                     <input

@@ -34,6 +34,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             item_total: preTaxRate,
             hsn_or_sac: '996812',
             zoho_item_id: '__system__', // tells invoice route to skip catalog creation
+            cost_price: 0,
         };
     };
 
@@ -251,24 +252,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 </div>
             </div>
 
-            <div className="mt-6 flex items-center p-4 bg-gray-50 dark:bg-[#1c1c28] border border-gray-200 dark:border-[#2a2a38] rounded-xl hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
-                <div className="flex items-center h-5">
-                    <input
-                        id="self-shipped"
-                        type="checkbox"
-                        className="w-5 h-5 text-accent bg-white border-gray-300 rounded-sm focus:ring-accent dark:focus:ring-accent dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-                        checked={!!formData.isSelfShipped}
-                        onChange={(e) => updateForm({ isSelfShipped: e.target.checked })}
-                        disabled={submitting}
-                    />
-                </div>
-                <div className="ml-3 text-sm flex-1">
-                    <label htmlFor="self-shipped" className="font-semibold text-gray-900 dark:text-gray-100 cursor-pointer">
-                        Self shipped order / Pooja
-                    </label>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">If checked, this order will not be passed to the Schedule Order list. It will be counted as usual in revenue and the invoice will be created.</p>
-                </div>
-            </div>
+
 
             <div className="mt-8 flex justify-between">
                 <button className="btn btn-secondary" onClick={onPrev} disabled={submitting}>
