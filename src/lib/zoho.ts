@@ -142,6 +142,64 @@ export async function getInvoice(invoiceId: string) {
 }
 
 /**
+ * Fetch a page of invoices from Zoho Billing.
+ */
+export async function fetchInvoices(page: number = 1, statusMask?: string) {
+    const headers = await zohoHeaders();
+
+    const params: Record<string, string> = {
+        per_page: '200',
+        page: page.toString(),
+    };
+    if (statusMask) {
+        params.status = statusMask;
+    }
+
+    const res = await fetch(`${ZOHO_API_BASE}/invoices?${new URLSearchParams(params).toString()}`, {
+        method: 'GET',
+        headers,
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch invoices from Zoho: ${res.status} — ${text}`);
+    }
+
+    const data = await res.json();
+    return {
+        status: res.status,
+        invoices: data.invoices || [],
+        hasMore: data.page_context?.has_more_page ?? false
+    };
+}
+
+/**
+ * Fetch all invoices from Zoho Billing (paginated).
+ */
+export async function fetchAllInvoices() {
+    let allInvoices: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+        const result = await fetchInvoices(page);
+        allInvoices = allInvoices.concat(result.invoices);
+        hasMore = result.hasMore;
+        page++;
+
+        // Safety break to prevent infinite loops
+        if (page > 50) break;
+
+        // Rate limit delay if more pages exist
+        if (hasMore) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+
+    return allInvoices;
+}
+
+/**
  * Update an existing invoice via Zoho Billing API.
  */
 export async function updateInvoice(invoiceId: string, body: Record<string, unknown>) {
