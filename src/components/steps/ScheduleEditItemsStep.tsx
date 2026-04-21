@@ -174,7 +174,6 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
                 toast.error(`Item ${i + 1} Name is required`);
                 return;
             }
-            if (item.quantity <= 0) {
             if (item.quantity === undefined || item.quantity < 1) {
                 toast.error(`Item ${i + 1} Quantity must be greater than 0`);
                 return;
@@ -312,5 +311,4 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             </div>
         </div>
     );
-}
 }
