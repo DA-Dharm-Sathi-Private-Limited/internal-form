@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { CombinedFormData } from '@/types/wizard';
 import LineItemRow from '@/components/LineItemRow';
 import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
@@ -30,6 +30,15 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
     const [zohoItems, setZohoItems] = useState<ZohoItem[]>([]);
     const [zohoTaxes, setZohoTaxes] = useState<ZohoTax[]>([]);
     const [loading, setLoading] = useState(true);
+    
+    // Track initial state to skip network call if unchanged
+    const initialCostPricesRef = useRef<string>('');
+
+    useEffect(() => {
+        if (!initialCostPricesRef.current && formData.invoice_items.length > 0) {
+            initialCostPricesRef.current = JSON.stringify(formData.invoice_items.map(it => it.cost_price));
+        }
+    }, [formData.invoice_items]);
 
     const isInterstate = isInterstateOrder(formData.state);
 
@@ -194,18 +203,22 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             return;
         }
 
+        const currentCostPrices = JSON.stringify(formData.invoice_items.map(it => it.cost_price));
+        if (currentCostPrices === initialCostPricesRef.current) {
+            // Unmodified cost prices, skip the network call entirely
+            onNext();
+            return;
+        }
+
         setLoading(true);
         try {
-            // Immediately patch the DB and Zoho using the unified API endpoint
+            // Only send the minimal array of objects with cost_price to save bandwidth and prevent overwriting
+            const lightweightItems = formData.invoice_items.map(item => ({ cost_price: item.cost_price }));
             const res = await fetch(`/api/orders/${formData.orderId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    invoiceItems: formData.invoice_items,
-                    discount: formData.discount,
-                    discount_format_type: formData.discount_format_type,
-                    include_shipping: formData.include_shipping,
-                    include_cod: formData.include_cod,
+                    invoiceItems: lightweightItems,
                 })
             });
             
@@ -213,6 +226,8 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
                 throw new Error("Failed to save edited items");
             }
 
+            // Update ref so we don't patch again if user goes back and forward without changing anything
+            initialCostPricesRef.current = currentCostPrices;
             onNext();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Error saving items");

@@ -59,7 +59,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
              return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
         }
 
+        // Allow updating core order properties, but strictly protect the invoiceItems array
         const safeSetParams: Record<string, unknown> = {};
+        
+        // Allowed root-level fields from the frontend
+        const allowedFields = ['status', 'selfShipped', 'waybill', 'waybills', 'shippingCost'];
+        for (const field of allowedFields) {
+            if (rest[field] !== undefined) {
+                safeSetParams[field] = rest[field];
+            }
+        }
 
         // Only pluck cost_price from incoming invoiceItems
         if (rest.invoiceItems && Array.isArray(rest.invoiceItems) && Array.isArray(existingOrder.invoiceItems)) {
@@ -97,109 +106,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
         }
 
-        // TEMPORARILY DISABLED: 
-        // Syncing to Zoho is currently disabled because Zoho's API agressively overwrites
-        // custom negotiated prices with catalog defaults when passing item_ids.
-        // MongoDB is actively saving the correct custom line items and cost_price!
-        
-        let zohoUpdated = false;
-        /*
-        console.log('[PATCH order] invoiceItems present:', !!rest.invoiceItems, '| zohoInvoiceId:', order.zohoInvoiceId ?? '(none)');
-        if (rest.invoiceItems && Array.isArray(rest.invoiceItems) && order.zohoInvoiceId) {
-            console.log('[PATCH order] Attempting Zoho invoice update for', order.zohoInvoiceId);
-            try {
-                // 1. Fetch the existing invoice from Zoho first to retrieve line_item_id mappings
-                const { getInvoice } = await import('@/lib/zoho');
-                let existingInvoice: any = null;
-                try {
-                    const fetched = await getInvoice(order.zohoInvoiceId);
-                    if (fetched.status === 200) {
-                         existingInvoice = fetched.data.invoice;
-                    }
-                } catch(e) {
-                    console.error('[PATCH order] Failed to fetch existing invoice for line item mapping', e);
-                }
-
-                const zohoLineItems = rest.invoiceItems.map((item: InvoiceItem) => {
-                    const itemAny = item as unknown as Record<string, unknown>;
-                    const taxPct = typeof itemAny.tax_percentage === 'number' ? itemAny.tax_percentage : 0;
-
-                    let pretaxRate: number = item.price ?? 0;
-                    if (item.final_price != null && item.final_price > 0) {
-                        if (taxPct > 0) {
-                            pretaxRate = item.final_price / (1 + taxPct / 100);
-                        } else {
-                            pretaxRate = item.final_price;
-                        }
-                    }
-
-                    const line: Record<string, unknown> = {
-                        name: item.name,
-                        rate: Math.round(pretaxRate * 100) / 100,
-                        quantity: item.quantity,
-                    };
-                    
-                    if (existingInvoice && Array.isArray(existingInvoice.invoice_items)) {
-                        const existingMatch = existingInvoice.invoice_items.find((ei: any) => 
-                            (item.zoho_item_id && ei.item_id === item.zoho_item_id) || ei.name === item.name
-                        );
-                        if (existingMatch && existingMatch.line_item_id) {
-                            line.line_item_id = existingMatch.line_item_id;
-                        }
-                    }
-
-                    if (item.hsn_or_sac) line.hsn_or_sac = item.hsn_or_sac;
-                    if (item.description) line.description = item.description;
-                    if (item.tax_id && item.tax_id !== 'NO_TAX') line.tax_id = item.tax_id;
-                    if (item.discount !== undefined) line.discount = item.discount;
-                    if (item.unit) line.unit = item.unit;
-                    
-                    if (item.zoho_item_id && line.line_item_id) {
-                        line.item_id = item.zoho_item_id;
-                    }
-
-                    return line;
-                });
-
-                const invoicePatch: Record<string, unknown> = {
-                    invoice_items: zohoLineItems,
-                };
-                
-                if (rest.discount !== undefined) {
-                    invoicePatch.discount = rest.discount;
-                    if (rest.discount_format_type) {
-                      invoicePatch.is_discount_before_tax = rest.discount_format_type === 'fixed' || rest.discount_format_type === 'percentage';
-                      if (rest.discount_format_type === 'percentage') {
-                         invoicePatch.discount = `${rest.discount}%`;
-                      }
-                    }
-                }
-                
-                if (rest.include_shipping !== undefined) {
-                      invoicePatch.shipping_charge = 0; 
-                }
-
-                if (rest.include_cod !== undefined) {
-                      invoicePatch.adjustment = rest.include_cod ? 50 : 0;
-                      invoicePatch.adjustment_description = "COD Charge";
-                }
-
-                const result = await updateInvoice(order.zohoInvoiceId, invoicePatch);
-                
-                zohoUpdated = result.status === 200;
-                if (zohoUpdated) {
-                    console.log('[PATCH order] Zoho invoice updated successfully:', order.zohoInvoiceId);
-                } else {
-                    console.error(`[PATCH order] Zoho invoice update FAILED — status ${result.status}:`, result.data?.message ?? result.data);
-                }
-            } catch (err) {
-                console.error('[PATCH order] Exception while updating Zoho invoice:', err);
-            }
-        } else if (rest.invoiceItems && !order.zohoInvoiceId) {
-            console.warn('[PATCH order] invoiceItems present but order has no zohoInvoiceId — skipping Zoho update');
-        }
-        */
-
+        const zohoUpdated = false; // Zoho syncing permanently disabled in this flow
         return NextResponse.json({ success: true, order, zohoUpdated }, { status: 200 });
     } catch (error: unknown) {
         console.error('Error updating order:', error);
