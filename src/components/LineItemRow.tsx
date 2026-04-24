@@ -71,6 +71,7 @@ interface LineItemRowProps {
     onChange: (index: number, updates: Partial<InvoiceItem>) => void;
     onRemove: (index: number) => void;
     canRemove: boolean;
+    readOnlyAllExceptCostPrice?: boolean;
 }
 
 export default function LineItemRow({
@@ -82,6 +83,7 @@ export default function LineItemRow({
     onChange,
     onRemove,
     canRemove,
+    readOnlyAllExceptCostPrice = false,
 }: LineItemRowProps) {
     const preTaxRate = Number(item.price) || 0;
     const qty = Number(item.quantity) || 0;
@@ -102,6 +104,7 @@ export default function LineItemRow({
                         placeholder="Product / service name"
                         list={`zoho-items-${index}`}
                         value={item.name}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => {
                             const val = e.target.value;
                             const updates: Partial<InvoiceItem> = { name: val };
@@ -146,6 +149,7 @@ export default function LineItemRow({
                         className="form-input"
                         placeholder="Brief description"
                         value={item.description || ''}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { description: e.target.value })}
                     />
                 </div>
@@ -155,7 +159,7 @@ export default function LineItemRow({
                     <select
                         className="form-input"
                         value={item.hsn_or_sac || ''}
-                        disabled={!!item.zoho_item_id}
+                        disabled={!!item.zoho_item_id || readOnlyAllExceptCostPrice}
                         title={
                             item.zoho_item_id
                                 ? 'HSN is pre-set from Zoho for existing products'
@@ -189,6 +193,7 @@ export default function LineItemRow({
                         step="0.01"
                         placeholder="0.00"
                         value={item.carat_size ?? ''}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => {
                             const raw = e.target.value;
                             onChange(index, {
@@ -225,6 +230,7 @@ export default function LineItemRow({
                         min="1"
                         step="1"
                         value={item.quantity}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { quantity: Number(e.target.value) || 0 })}
                         required
                     />
@@ -236,6 +242,7 @@ export default function LineItemRow({
                     <select
                         className="form-input"
                         value={item.tax_id || ''}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { tax_id: e.target.value })}
                         required
                     >
@@ -269,6 +276,7 @@ export default function LineItemRow({
                         step="0.01"
                         placeholder="0.00"
                         value={item.final_price !== undefined && item.final_price !== 0 ? item.final_price : ''}
+                        disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => {
                             const raw = e.target.value;
                             onChange(index, { final_price: raw === '' ? undefined : Number(raw) });
@@ -291,7 +299,7 @@ export default function LineItemRow({
                 </div>
             </div>
 
-            {canRemove && (
+            {canRemove && !readOnlyAllExceptCostPrice && (
                 <button
                     type="button"
                     className="line-item-remove"

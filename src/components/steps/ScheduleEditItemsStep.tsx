@@ -281,12 +281,15 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
                         onChange={handleItemChange}
                         onRemove={() => removeItem(index)}
                         canRemove={formData.invoice_items.length > 1}
+                        readOnlyAllExceptCostPrice={true}
                     />
                 ))}
 
+                {/* Adding new items during scheduling is restricted: 
                 <button type="button" className="btn-add-item" onClick={addItem}>
                     + Add Product/Service
                 </button>
+                */}
             </div>
 
             {/* Adjusting the total values box to track edited items total */}
