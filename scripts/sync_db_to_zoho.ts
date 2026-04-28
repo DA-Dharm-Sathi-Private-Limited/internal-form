@@ -37,7 +37,7 @@ config({ path: '../.env.local' });
 // ██  CONFIGURE THIS — Set the invoice/order ID to sync below  ██
 // ════════════════════════════════════════════════════════════════
 
-const TARGET_ORDER_ID = 'INV-000321';  // ← Change this to your invoice number
+const TARGET_ORDER_ID = 'INV-000270';  // ← Change this to your invoice number
 
 // ════════════════════════════════════════════════════════════════
 

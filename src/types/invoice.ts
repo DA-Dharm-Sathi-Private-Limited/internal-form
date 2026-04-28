@@ -58,7 +58,7 @@ export const INDIAN_STATE_NAMES: Record<string, string> = {
 };
 
 // --- Salesperson ---
-export const SALESPERSONS = ['Utkarsh', 'Karamveer', 'Aviral', 'Raj'] as const;
+export const SALESPERSONS = ['Utkarsh', 'Karamveer', 'Aviral', 'Raj', 'Other'] as const;
 export type Salesperson = (typeof SALESPERSONS)[number];
 
 // --- Address ---
