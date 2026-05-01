@@ -12,9 +12,7 @@ export const customerStepSchema = z.object({
     pincode: z.string().regex(/^\d{6}$/, 'Pincode must be exactly 6 digits'),
     date: z.string().min(1, 'Invoice Date is required'),
     salesperson_name: z.string().min(1, 'Salesperson is required'),
-    isPincodeServiceable: z.boolean().nullable().refine((val) => val === true, {
-        message: 'Please verify that the Pincode is serviceable'
-    }),
+    isPincodeServiceable: z.boolean().nullable(),
 });
 
 export const invoiceItemsStepSchema = z.object({
