@@ -155,6 +155,8 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
                                 email: customer.email || '',
                                 country_code: '+91',
                                 phone: prefilled.phone,
+                                astrologer_name: customer.display_name || '',
+                                astrologer_number: prefilled.phone,
                                 address: prefilled.address,
                                 pincode: prefilled.pincode,
                                 city: prefilled.city,
@@ -261,6 +263,8 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
                             email: customer.email || '',
                             country_code: parsedCountryCode,
                             phone: parsedPhone,
+                            astrologer_name: customer.display_name || '',
+                            astrologer_number: parsedPhone,
                             gst_treatment: customer.gst_treatment || 'consumer',
                         });
                     }}
@@ -311,7 +315,13 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
                     <input
                         className="form-input"
                         value={formData.customer_name}
-                        onChange={(e) => updateForm({ customer_name: e.target.value })}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            updateForm({ 
+                                customer_name: val,
+                                ...(formData.astrologer_name === formData.customer_name && { astrologer_name: val })
+                            });
+                        }}
                         placeholder="John Doe"
                     />
                 </div>
@@ -351,12 +361,38 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
                             <input
                                 className="form-input"
                                 value={formData.phone}
-                                onChange={(e) => updateForm({ phone: e.target.value.replace(/\D/g, '') })}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    updateForm({ 
+                                        phone: val,
+                                        ...(formData.astrologer_number === formData.phone && { astrologer_number: val })
+                                    });
+                                }}
                                 placeholder="9876543210"
                                 maxLength={10}
                             />
                         </div>
                     </div>
+                </div>
+
+                <div className="form-group">
+                    <label>Astrologer Name</label>
+                    <input
+                        className="form-input"
+                        value={formData.astrologer_name}
+                        onChange={(e) => updateForm({ astrologer_name: e.target.value })}
+                        placeholder="Astrologer Name"
+                    />
+                </div>
+                <div className="form-group">
+                    <label>Astrologer Number</label>
+                    <input
+                        className="form-input"
+                        value={formData.astrologer_number}
+                        onChange={(e) => updateForm({ astrologer_number: e.target.value.replace(/\D/g, '') })}
+                        placeholder="9876543210"
+                        maxLength={10}
+                    />
                 </div>
                 <div className="form-group">
                     <label>Address *</label>

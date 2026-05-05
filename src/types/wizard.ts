@@ -17,6 +17,8 @@ export interface CombinedFormData {
     email: string;
     country_code: string;
     phone: string;
+    astrologer_name: string;
+    astrologer_number: string;
     address: string;
     city: string;
     state: string;
@@ -101,6 +103,8 @@ export const INITIAL_WIZARD_STATE: CombinedFormData = {
     email: '',
     country_code: '+91',
     phone: '',
+    astrologer_name: '',
+    astrologer_number: '',
     address: '',
     city: '',
     state: 'Delhi',

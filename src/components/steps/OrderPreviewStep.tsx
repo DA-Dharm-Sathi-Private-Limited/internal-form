@@ -122,6 +122,10 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                     country: formData.country,
                     pincode: formData.pincode,
                 },
+                astrologerDetails: {
+                    astrologerName: formData.astrologer_name,
+                    astrologerNumber: formData.astrologer_number,
+                },
                 // Persist the raw UI items with additional delivery items, including optional descriptions,
                 // so the schedule-order wizard can see them even though we
                 // no longer send description to Zoho.

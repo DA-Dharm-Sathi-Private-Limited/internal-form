@@ -24,6 +24,10 @@ const OrderSchema = new mongoose.Schema(
             country: String,
             pincode: String,
         },
+        astrologerDetails: {
+            astrologerName: String,
+            astrologerNumber: String,
+        },
         // Snapshot of invoice line items as created in Zoho / our UI.
         invoiceItems: [
             {

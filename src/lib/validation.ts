@@ -6,6 +6,8 @@ export const customerStepSchema = z.object({
     email: z.string().email('Invalid email address').or(z.literal('')), // Optional but must be valid if present
     country_code: z.string().min(1, 'Country Code is required'),
     phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
+    astrologer_name: z.string().optional(),
+    astrologer_number: z.string().optional(),
     address: z.string().min(1, 'Address is required'),
     city: z.string().optional(),
     state: z.string().min(1, 'State is required'),
