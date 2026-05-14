@@ -58,8 +58,17 @@ export const INDIAN_STATE_NAMES: Record<string, string> = {
 };
 
 // --- Salesperson ---
-export const SALESPERSONS = ['Utkarsh', 'Karamveer', 'Aviral', 'Raj', 'Other'] as const;
-export type Salesperson = (typeof SALESPERSONS)[number];
+export enum Salesperson {
+  Utkarsh = 'Utkarsh',
+  Karamveer = 'Karamveer',
+  Aviral = 'Aviral',
+  Raj = 'Raj',
+  Vishal = 'Vishal',
+  Bhavana = 'Bhavana',
+  Other = 'Other',
+}
+
+export const SALESPERSONS = Object.values(Salesperson) as readonly Salesperson[];
 
 // --- Address ---
 export interface Address {

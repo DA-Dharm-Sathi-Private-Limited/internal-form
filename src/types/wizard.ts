@@ -1,4 +1,4 @@
-import { InvoiceItem, GSTTreatment } from './invoice';
+import { InvoiceItem, GSTTreatment, Salesperson } from './invoice';
 import { Warehouse } from './delhivery';
 
 export enum WizardStep {
@@ -29,7 +29,7 @@ export interface CombinedFormData {
     payment_terms: number;
     reference_number: string;
     gst_treatment: GSTTreatment;
-    salesperson_name: string;
+    salesperson_name: Salesperson | '';
 
     // validation state
     isPincodeServiceable: boolean | null;

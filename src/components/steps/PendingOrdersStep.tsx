@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { InvoiceItem } from '@/types/invoice';
+import type { InvoiceItem, Salesperson } from '@/types/invoice';
 
 interface Order {
     _id: string;
@@ -19,7 +19,7 @@ interface Order {
         pincode: string;
     };
     invoiceItems: InvoiceItem[];
-    salespersonName: string;
+    salespersonName: Salesperson | '';
     paymentMode?: 'Prepaid' | 'COD';
     status: string;
     createdAt: string;

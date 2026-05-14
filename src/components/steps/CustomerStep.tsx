@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CombinedFormData } from '@/types/wizard';
-import { INDIAN_STATES, INDIAN_STATE_NAMES, SALESPERSONS, Customer } from '@/types/invoice';
+import { INDIAN_STATES, INDIAN_STATE_NAMES, SALESPERSONS, Customer, Salesperson } from '@/types/invoice';
 import CustomerSearch from '../CustomerSearch'; // Reusing the existing component
 import stateCodesData from '@/data/state-codes.json';
 import { toast } from 'sonner';
@@ -456,7 +456,7 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
                     <select
                         className="form-input"
                         value={formData.salesperson_name}
-                        onChange={(e) => updateForm({ salesperson_name: e.target.value })}
+                        onChange={(e) => updateForm({ salesperson_name: e.target.value as Salesperson | '' })}
                     >
                         <option value="">Select Salesperson</option>
                         {SALESPERSONS.map((sp) => (

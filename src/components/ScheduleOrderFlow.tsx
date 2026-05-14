@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CombinedFormData, INITIAL_WIZARD_STATE } from '@/types/wizard';
+import { Salesperson } from '@/types/invoice';
 import type { InvoiceItem } from '@/types/invoice';
 import PendingOrdersStep from './steps/PendingOrdersStep';
 import SchedulePreviewStep from './steps/SchedulePreviewStep';
@@ -47,7 +48,7 @@ export default function ScheduleOrderFlow() {
             pincode: string;
         };
         invoiceItems: InvoiceItem[];
-        salespersonName: string;
+        salespersonName: Salesperson | '';
         paymentMode?: 'Prepaid' | 'COD';
         status: string;
     };
