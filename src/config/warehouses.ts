@@ -20,7 +20,8 @@ export const DELHIIVERY_WAREHOUSES = [
     'K V',
     'Keshav Agate',
     'Surya',
-    'Sonipat'
+    'Sonipat',
+    'Astro Ratnam'
 ] as const;
 
 export type DelhiveryWarehouse = typeof DELHIIVERY_WAREHOUSES[number];
@@ -54,5 +55,6 @@ export const WAREHOUSE_DETAILS: Record<DelhiveryWarehouse, WarehouseDetail> = {
         pincode: '131001',
         description: 'Sonipat Facility',
         defaultPickupTime: '18:00:00'
-    }
+    },
+    'Astro Ratnam': { pincode: '302003', description: 'Jaipur Astro Ratnam' }
 };
