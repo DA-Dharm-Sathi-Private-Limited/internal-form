@@ -121,7 +121,7 @@ const OrderSchema = new mongoose.Schema(
         // High-level order shipping status.
         status: {
             type: String,
-            enum: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED', 'DTDC_SCHEDULED'],
+            enum: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED', 'DTDC_SCHEDULED', 'RTO'],
             default: 'PENDING_SHIPPING',
         },
         selfShipped: {

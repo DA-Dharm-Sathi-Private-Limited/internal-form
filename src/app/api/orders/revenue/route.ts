@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         const startDateParam = searchParams.get('startDate');
         const endDateParam = searchParams.get('endDate');
 
-        const query: { createdAt?: { $gte?: Date; $lte?: Date } } = {};
+        const query: any = { status: { $ne: 'RTO' } };
         if (startDateParam || endDateParam) {
             query.createdAt = {};
             if (startDateParam) {

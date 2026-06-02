@@ -1,9 +1,8 @@
 'use server';
 
-import { Resend } from 'resend';
-
-// Initialize with the API key from environment variables
-const resend = new Resend(process.env.RESEND_API_KEY);
+import connectDB from '@/lib/mongodb';
+import Order from '@/models/Order';
+import Grievance from '@/models/Grievance';
 
 export async function submitGrievance(data: { salespersonName: string, orderId: string, grievanceType: string, explainIssue: string }) {
     try {
@@ -13,26 +12,28 @@ export async function submitGrievance(data: { salespersonName: string, orderId: 
             return { success: false, error: 'All fields are required' };
         }
 
-        const fromEmail = `${salespersonName.toLowerCase().trim()}@humarapandit.com`;
+        await connectDB();
 
-        const response = await resend.emails.send({
-            from: fromEmail,
-            to: 'namaste@humarapandit.com',
-            subject: `Grievance Report - Order ID: ${orderId}`,
-            html: `
-                <h2>New Grievance Report</h2>
-                <p><strong>Salesperson:</strong> ${salespersonName}</p>
-                <p><strong>Order ID:</strong> ${orderId}</p>
-                <p><strong>Grievance Type:</strong> ${grievanceType}</p>
-                <p><strong>Issue Details:</strong></p>
-                <p>${explainIssue.replace(/\n/g, '<br/>')}</p>
-            `
+        // Validate the invoice number (only query orderId as requested)
+        const order = await Order.findOne({ orderId: orderId.trim() });
+        
+        if (!order) {
+            return { success: false, error: 'Invalid Order ID' };
+        }
+
+        // Store the grievance in new table
+        await Grievance.create({
+            invoiceId: orderId.trim(),
+            salespersonName,
+            grievanceType,
+            grievanceDescription: explainIssue
         });
 
-        if (response.error) {
-            console.error('Resend error:', response.error);
-            return { success: false, error: response.error.message };
-        }
+        // Change the order status of that invoice number to "RTO"
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { status: 'RTO' } }
+        );
 
         return { success: true };
     } catch (error: any) {

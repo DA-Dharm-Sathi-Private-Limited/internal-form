@@ -104,6 +104,7 @@ export default function GrievanceForm() {
                         <option value="" disabled>Select a grievance type</option>
                         <option value="amount_gt_2000">Amount &gt; 2000</option>
                         <option value="need_solution">Need to figure out solution</option>
+                        <option value="order_returned">Order Returned</option>
                     </select>
                 </div>
 
