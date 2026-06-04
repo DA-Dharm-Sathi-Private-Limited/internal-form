@@ -93,6 +93,7 @@ const OrderSchema = new mongoose.Schema(
                     default: 'Delhivery'
                 },
                 waybill: String, // optional for self-shipped / DTDC
+                awb: String, // optional for DTDC
                 shippingCost: {
                     type: Number,
                     default: 0,

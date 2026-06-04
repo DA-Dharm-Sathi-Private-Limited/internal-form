@@ -271,6 +271,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 vendor: string;
                 deliveryPartner?: string;
                 waybill?: string;
+                awb?: string;
                 shippingCost: number;
                 warehouse: string;
                 paymentMode?: string;
@@ -387,17 +388,13 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 createdShipmentsForOrder.push({
                     vendor: sh.warehouse || sh.vendor,
                     deliveryPartner: 'DTDC',
-                    waybill: sh.awb || undefined,
+                    awb: sh.awb || undefined,
                     shippingCost: 0,
                     warehouse: sh.warehouse || (formData.warehouse as string),
                     paymentMode: sh.payment_mode || 'Prepaid',
                     codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
                     items: effectiveItems,
                 });
-                
-                if (sh.awb) {
-                    allWaybills.push(sh.awb);
-                }
             }
 
 
