@@ -49,7 +49,12 @@ export async function POST() {
                     const fromVal = shipment.warehouse || '';
                     const toVal = order.customerDetails?.customer_name || '';
 
-                    // [Date, Shipping, Invoice Number, AWB, Self, From, To]
+                    const pincodeVal = order.customerDetails?.pincode || '';
+                    const cityVal = order.customerDetails?.city || '';
+                    const stateVal = order.customerDetails?.state || '';
+                    const pocVal = order.salespersonName || '';
+
+                    // [Date, Shipping, Invoice Number, AWB, Self, From, To, Pincode, City, State, POC]
                     rowsToInsert.push([
                         formattedDate,
                         shippingVal,
@@ -57,7 +62,11 @@ export async function POST() {
                         awbVal,
                         selfVal,
                         fromVal,
-                        toVal
+                        toVal,
+                        pincodeVal,
+                        cityVal,
+                        stateVal,
+                        pocVal
                     ]);
                 }
             }
@@ -81,10 +90,16 @@ export async function POST() {
             throw new Error('GOOGLE_SHEET_ID is missing from environment variables');
         }
 
+        // Clear the daily_orders sheet before appending new data (excluding headers on row 1)
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: sheetId,
+            range: 'daily_orders!A2:K',
+        });
+
         // Append to 'daily_orders' sheet
         await sheets.spreadsheets.values.append({
             spreadsheetId: sheetId,
-            range: 'daily_orders!A:G', // Adjust to match exact tab name
+            range: 'daily_orders!A2:K', // Adjust to match exact tab name
             valueInputOption: 'USER_ENTERED',
             requestBody: {
                 values: rowsToInsert,
