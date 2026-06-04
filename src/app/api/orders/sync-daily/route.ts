@@ -38,7 +38,7 @@ export async function POST() {
                         awbVal = shipment.waybill || '';
                     } else if (shipment.deliveryPartner === 'DTDC') {
                         shippingVal = 'DTDC';
-                        awbVal = shipment.awb || shipment.waybill || '';
+                        awbVal = shipment.waybill || '';
                     } else {
                         shippingVal = shipment.deliveryPartner || '';
                         awbVal = shipment.waybill || '';

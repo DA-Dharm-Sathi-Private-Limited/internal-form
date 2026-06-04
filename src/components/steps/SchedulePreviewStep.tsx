@@ -125,7 +125,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                     height: formData.height || 10,
                     products_desc: formData.products_desc || '',
                     cod_amount: undefined,
-                    provider: kind === 'SELF' ? (formData.selfShipmentProvider || '') : '',
+                    provider: '',
                     awb: '',
                 },
             ];
@@ -271,12 +271,10 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 vendor: string;
                 deliveryPartner?: string;
                 waybill?: string;
-                awb?: string;
                 shippingCost: number;
                 warehouse: string;
                 paymentMode?: string;
                 codAmount?: number;
-                selfShipmentProvider?: string;
                 items: { lineIndex: number; quantity: number }[];
             }[] = [];
 
@@ -389,7 +387,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 createdShipmentsForOrder.push({
                     vendor: sh.warehouse || sh.vendor,
                     deliveryPartner: 'DTDC',
-                    awb: sh.awb || undefined,
+                    waybill: sh.awb || undefined,
                     shippingCost: 0,
                     warehouse: sh.warehouse || (formData.warehouse as string),
                     paymentMode: sh.payment_mode || 'Prepaid',
@@ -411,8 +409,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                         shippingCost: 0,
                         warehouse: sh.warehouse || (formData.warehouse as string),
                         paymentMode: sh.payment_mode || 'Prepaid',
-                        selfShipmentProvider: sh.provider || '',
-                        awb: sh.awb || '',
                         items: effectiveItems,
                     });
                 }
