@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { submitGrievance } from '@/app/actions/grievanceActions';
 
-export default function GrievanceForm() {
+export default function GrievanceForm({ onSuccess }: { onSuccess?: () => void }) {
     const [submitting, setSubmitting] = useState(false);
+    const [customGrievanceType, setCustomGrievanceType] = useState('');
     const [formData, setFormData] = useState({
         salespersonName: '',
         orderId: '',
@@ -26,10 +27,21 @@ export default function GrievanceForm() {
             return;
         }
 
+        if (formData.grievanceType === 'other' && !customGrievanceType.trim()) {
+            toast.error('Please specify the grievance type');
+            return;
+        }
+
         setSubmitting(true);
 
         try {
-            const result = await submitGrievance(formData);
+            const finalGrievanceType = formData.grievanceType === 'other' ? customGrievanceType.trim() : formData.grievanceType;
+            const payload = {
+                ...formData,
+                grievanceType: finalGrievanceType
+            };
+            
+            const result = await submitGrievance(payload);
             if (!result.success) {
                 throw new Error(result.error);
             }
@@ -42,6 +54,11 @@ export default function GrievanceForm() {
                 grievanceType: '',
                 explainIssue: ''
             });
+            setCustomGrievanceType('');
+            
+            if (onSuccess) {
+                onSuccess();
+            }
         } catch (error: any) {
             toast.error(error.message || 'Failed to submit grievance');
         } finally {
@@ -50,20 +67,20 @@ export default function GrievanceForm() {
     };
 
     return (
-        <div className="invoice-form" style={{ marginTop: '2rem' }}>
-            <div className="form-header">
-                <h1>Report a Grievance</h1>
-                <p>Submit any issues or concerns to be addressed</p>
+        <div className="bg-white dark:bg-[#12121a] border border-gray-200 dark:border-[#2a2a38] rounded-xl shadow-sm p-5 mb-8 max-w-4xl mx-auto">
+            <div className="mb-4">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Report a Grievance</h2>
+                <p className="text-xs text-gray-500">Submit any issues or concerns to be addressed</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="form-section">
-                <div className="form-grid-2 mb-4">
-                    <div className="form-group">
-                        <label htmlFor="salespersonName">Salesperson Name *</label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="form-group mb-0">
+                        <label htmlFor="salespersonName" className="text-xs font-semibold mb-1 block">Salesperson Name *</label>
                         <select
                             id="salespersonName"
                             name="salespersonName"
-                            className="form-input"
+                            className="form-input text-sm p-2"
                             value={formData.salespersonName}
                             onChange={handleChange}
                             required
@@ -76,13 +93,13 @@ export default function GrievanceForm() {
                         </select>
                     </div>
 
-                    <div className="form-group">
-                        <label htmlFor="orderId">Order ID *</label>
+                    <div className="form-group mb-0">
+                        <label htmlFor="orderId" className="text-xs font-semibold mb-1 block">Order ID *</label>
                         <input
                             type="text"
                             id="orderId"
                             name="orderId"
-                            className="form-input"
+                            className="form-input text-sm p-2"
                             placeholder="Eg: INV-000101"
                             value={formData.orderId}
                             onChange={handleChange}
@@ -91,41 +108,59 @@ export default function GrievanceForm() {
                     </div>
                 </div>
 
-                <div className="form-group mb-4">
-                    <label htmlFor="grievanceType">Grievance Type *</label>
-                    <select
-                        id="grievanceType"
-                        name="grievanceType"
-                        className="form-input"
-                        value={formData.grievanceType}
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="" disabled>Select a grievance type</option>
-                        <option value="amount_gt_2000">Amount &gt; 2000</option>
-                        <option value="need_solution">Need to figure out solution</option>
-                        <option value="order_returned">Order Returned</option>
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="form-group mb-0">
+                        <label htmlFor="grievanceType" className="text-xs font-semibold mb-1 block">Grievance Type *</label>
+                        <select
+                            id="grievanceType"
+                            name="grievanceType"
+                            className="form-input text-sm p-2"
+                            value={formData.grievanceType}
+                            onChange={handleChange}
+                            required
+                        >
+                            <option value="" disabled>Select a grievance type</option>
+                            <option value="amount_gt_2000">Amount &gt; 2000</option>
+                            <option value="need_solution">Need to figure out solution</option>
+                            <option value="order_returned">Order Returned</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    {formData.grievanceType === 'other' && (
+                        <div className="form-group mb-0 animate-in fade-in">
+                            <label htmlFor="customGrievanceType" className="text-xs font-semibold mb-1 block">Specify Grievance *</label>
+                            <input
+                                type="text"
+                                id="customGrievanceType"
+                                className="form-input text-sm p-2"
+                                placeholder="Enter grievance type..."
+                                value={customGrievanceType}
+                                onChange={(e) => setCustomGrievanceType(e.target.value)}
+                                required
+                            />
+                        </div>
+                    )}
                 </div>
 
-                <div className="form-group mb-4">
-                    <label htmlFor="explainIssue">Explain Issue *</label>
+                <div className="form-group mb-0">
+                    <label htmlFor="explainIssue" className="text-xs font-semibold mb-1 block">Explain Issue *</label>
                     <textarea
                         id="explainIssue"
                         name="explainIssue"
-                        className="form-input form-textarea"
+                        className="form-input text-sm p-2"
                         placeholder="Please explain the issue in detail..."
                         value={formData.explainIssue}
                         onChange={handleChange}
                         required
-                        rows={4}
+                        rows={3}
                     />
                 </div>
 
-                <div className="form-submit-section mt-6">
+                <div className="flex justify-end pt-2">
                     <button
                         type="submit"
-                        className="btn btn-submit"
+                        className="btn btn-primary py-2 px-6 text-sm"
                         disabled={submitting}
                     >
                         {submitting ? (

@@ -29,11 +29,13 @@ export async function submitGrievance(data: { salespersonName: string, orderId: 
             grievanceDescription: explainIssue
         });
 
-        // Change the order status of that invoice number to "RTO"
-        await Order.updateOne(
-            { _id: order._id },
-            { $set: { status: 'RTO' } }
-        );
+        // Change the order status of that invoice number to "RTO" only if order is returned
+        if (grievanceType === 'order_returned') {
+            await Order.updateOne(
+                { _id: order._id },
+                { $set: { status: 'RTO' } }
+            );
+        }
 
         return { success: true };
     } catch (error: any) {
