@@ -387,12 +387,17 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 createdShipmentsForOrder.push({
                     vendor: sh.warehouse || sh.vendor,
                     deliveryPartner: 'DTDC',
+                    waybill: sh.awb || undefined,
                     shippingCost: 0,
                     warehouse: sh.warehouse || (formData.warehouse as string),
                     paymentMode: sh.payment_mode || 'Prepaid',
                     codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
                     items: effectiveItems,
                 });
+                
+                if (sh.awb) {
+                    allWaybills.push(sh.awb);
+                }
             }
 
 
@@ -637,6 +642,17 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                                             />
                                         </div>
                                     </>
+                                )}
+                                {sh.deliveryPartner === 'DTDC' && (
+                                    <div className="form-group">
+                                        <label>AWB Number (Optional)</label>
+                                        <input
+                                            className="form-input"
+                                            value={sh.awb || ''}
+                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, awb: e.target.value } : s))}
+                                            placeholder="Enter DTDC AWB"
+                                        />
+                                    </div>
                                 )}
                                 <div className="form-group">
                                     <label>Vendor / Origin</label>
