@@ -7,7 +7,7 @@ frontend:
         - bun install
     build:
       commands:
-        - env | grep -e ZOHO_ -e DELHIVERY_ -e MONGODB_ -e FREEASTRO_ -e AZURE_ -e ADMIN_ -e HP_ -e RESEND_ -e GOOGLE_ >> .env.production
+        - node scripts/generate-env.js
         - bun run build
   artifacts:
     baseDirectory: .next
