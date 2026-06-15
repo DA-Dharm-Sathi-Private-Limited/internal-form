@@ -144,7 +144,7 @@ export async function getInvoice(invoiceId: string) {
 /**
  * Fetch a page of invoices from Zoho Billing.
  */
-export async function fetchInvoices(page: number = 1, statusMask?: string) {
+export async function fetchInvoices(page: number = 1, statusMask?: string, dateStart?: string, dateEnd?: string) {
     const headers = await zohoHeaders();
 
     const params: Record<string, string> = {
@@ -153,6 +153,12 @@ export async function fetchInvoices(page: number = 1, statusMask?: string) {
     };
     if (statusMask) {
         params.status = statusMask;
+    }
+    if (dateStart) {
+        params.date_start = dateStart;
+    }
+    if (dateEnd) {
+        params.date_end = dateEnd;
     }
 
     const res = await fetch(`${ZOHO_API_BASE}/invoices?${new URLSearchParams(params).toString()}`, {
@@ -176,13 +182,13 @@ export async function fetchInvoices(page: number = 1, statusMask?: string) {
 /**
  * Fetch all invoices from Zoho Billing (paginated).
  */
-export async function fetchAllInvoices() {
+export async function fetchAllInvoices(params?: { statusMask?: string, dateStart?: string, dateEnd?: string }) {
     let allInvoices: any[] = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
-        const result = await fetchInvoices(page);
+        const result = await fetchInvoices(page, params?.statusMask, params?.dateStart, params?.dateEnd);
         allInvoices = allInvoices.concat(result.invoices);
         hasMore = result.hasMore;
         page++;

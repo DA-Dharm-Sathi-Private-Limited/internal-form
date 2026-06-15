@@ -960,6 +960,8 @@ input.no-spinner[type="number"]::-webkit-inner-spin-button {
 .nav-links {
   display: flex;
   gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .nav-link {

@@ -10,6 +10,7 @@
  *
  * CSV columns:
  *   Invoice number,
+ *   Invoice date (DD/MM/YYYY),
  *   Customer name,
  *   Customer phone number,
  *   Astrologer name,
@@ -21,6 +22,7 @@
  *   Price of each item,
  *   Tax of each item,
  *   Category of each item (based on mapped HSNs),
+ *   Cost price of each item (DB orders only),
  *   Order total,
  *   Discount,
  *   Invoice total.
@@ -137,6 +139,16 @@ function isDateInRange(dateStr: string, from?: string, to?: string): boolean {
 
 function formatMoney(value: number): string {
     return round2(value).toFixed(2);
+}
+
+function formatDateDDMMYYYY(value: string | Date | undefined | null): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
 }
 
 function extractMongoPhone(order: any): string {
@@ -258,6 +270,14 @@ function getMongoItemTax(item: any): number {
     return round2(taxAmount);
 }
 
+function getMongoItemTaxPct(item: any): number {
+    if (item?.tax_percentage !== undefined) return Number(item.tax_percentage);
+    const hsn = String(item?.hsn_or_sac || '');
+    const mappedPct = HSN_TAX_RATES[hsn];
+    if (Number.isFinite(mappedPct)) return mappedPct;
+    return 0;
+}
+
 function getMongoOrderTotal(order: any): number {
     const items = Array.isArray(order?.invoiceItems) ? order.invoiceItems : [];
     return round2(items.reduce((sum: number, item: any) => {
@@ -299,6 +319,14 @@ function getZohoItemTax(item: any): number {
     if (Number.isFinite(mappedPct)) return round2(rate * (mappedPct / 100));
 
     return round2(taxAmount);
+}
+
+function getZohoItemTaxPct(item: any): number {
+    if (item?.tax_percentage !== undefined) return Number(item.tax_percentage);
+    const hsn = String(item?.hsn_or_sac || '');
+    const mappedPct = HSN_TAX_RATES[hsn];
+    if (Number.isFinite(mappedPct)) return mappedPct;
+    return 0;
 }
 
 function getZohoOrderTotal(invoice: any): number {
@@ -363,9 +391,9 @@ async function fetchMongoOrders(Order: any, from: string, to: string) {
     return map;
 }
 
-async function fetchZohoInvoiceSummaries(zoho: any) {
-    console.log(dim('Fetching all invoices from Zoho Billing (paginated)...'));
-    const all = await zoho.fetchAllInvoices();
+async function fetchZohoInvoiceSummaries(zoho: any, from: string, to: string) {
+    console.log(dim(`Fetching invoices from Zoho Billing (${from} to ${to})...`));
+    const all = await zoho.fetchAllInvoices({ dateStart: from, dateEnd: to });
     console.log(green(`✅ Found ${all.length} invoices in Zoho.`));
 
     const map = new Map<string, any>();
@@ -427,7 +455,7 @@ async function main() {
 
     let zohoMap = new Map<string, any>();
     if (!args.dbOnly) {
-        zohoMap = await fetchZohoInvoiceSummaries(zoho);
+        zohoMap = await fetchZohoInvoiceSummaries(zoho, args.from, args.to);
     }
 
     const allInvoiceNumbers = new Set<string>([...dbMap.keys(), ...zohoMap.keys()]);
@@ -469,17 +497,23 @@ async function main() {
     const rows: string[][] = [];
     rows.push([
         'Invoice Number',
+        'Invoice Date',
         'Customer Name',
         'Customer Phone Number',
         'Astrologer Name',
         'Astrologer Phone Number',
+        'Salesperson Name',
         'Address',
         'City',
         'State',
         'Pincode',
+        'Item Name',
         'Price of Each Item',
         'Tax of Each Item',
+        'Tax Percentage',
+        'HSN Code',
         'Category of Each Item',
+        'Cost Price',
         'Order Total',
         'Discount',
         'Invoice Total',
@@ -491,10 +525,12 @@ async function main() {
         if (!order) return;
 
         const items = Array.isArray(order.invoiceItems) ? order.invoiceItems : [];
+        const invoiceDate = formatDateDDMMYYYY(order.createdAt);
         const customerName = order.customerDetails?.customer_name || '';
         const customerPhone = extractMongoPhone(order);
         const astrologerName = extractMongoAstrologerName(order);
         const astrologerPhone = extractMongoAstrologerPhone(order);
+        const salespersonName = order.salespersonName || '';
         const customerAddress = extractMongoAddress(order);
         const orderTotal = getMongoOrderTotal(order);
         const discount = getMongoDiscount(order);
@@ -503,17 +539,23 @@ async function main() {
         if (items.length === 0) {
             rows.push([
                 escapeCsv(invoiceNumber),
+                escapeCsv(invoiceDate),
                 escapeCsv(customerName),
                 escapeCsv(customerPhone),
                 escapeCsv(astrologerName),
                 escapeCsv(astrologerPhone),
+                escapeCsv(salespersonName),
                 escapeCsv(customerAddress.address),
                 escapeCsv(customerAddress.city),
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
+                escapeCsv(''),
                 escapeCsv(formatMoney(0)),
                 escapeCsv(formatMoney(0)),
+                escapeCsv('0%'),
+                escapeCsv(''),
                 escapeCsv('Unknown'),
+                escapeCsv(''),
                 escapeCsv(formatMoney(orderTotal)),
                 escapeCsv(formatMoney(discount)),
                 escapeCsv(formatMoney(invoiceTotal)),
@@ -523,19 +565,26 @@ async function main() {
         }
 
         for (const item of items) {
+            const costPrice = Number(item?.cost_price);
             rows.push([
                 escapeCsv(invoiceNumber),
+                escapeCsv(invoiceDate),
                 escapeCsv(customerName),
                 escapeCsv(customerPhone),
                 escapeCsv(astrologerName),
                 escapeCsv(astrologerPhone),
+                escapeCsv(salespersonName),
                 escapeCsv(customerAddress.address),
                 escapeCsv(customerAddress.city),
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
+                escapeCsv(item?.name || ''),
                 escapeCsv(formatMoney(getMongoItemPrice(item))),
                 escapeCsv(formatMoney(getMongoItemTax(item))),
+                escapeCsv(`${getMongoItemTaxPct(item)}%`),
+                escapeCsv(item?.hsn_or_sac || ''),
                 escapeCsv(getCategoryFromHsn(item?.hsn_or_sac)),
+                escapeCsv(Number.isFinite(costPrice) ? formatMoney(costPrice) : ''),
                 escapeCsv(formatMoney(orderTotal)),
                 escapeCsv(formatMoney(discount)),
                 escapeCsv(formatMoney(invoiceTotal)),
@@ -592,8 +641,10 @@ async function main() {
         }
 
         const items = Array.isArray(invoice.line_items) ? invoice.line_items : [];
+        const invoiceDate = formatDateDDMMYYYY(invoice.date);
         const customerName = invoice.customer_name || '';
         const customerPhone = extractZohoPhone(invoice);
+        const salespersonName = invoice.salesperson_name || '';
         let customerAddress = extractZohoAddress(invoice);
 
         // If the invoice address is empty, try fetching from the customer record
@@ -608,17 +659,23 @@ async function main() {
         if (items.length === 0) {
             rows.push([
                 escapeCsv(invoiceNumber),
+                escapeCsv(invoiceDate),
                 escapeCsv(customerName),
                 escapeCsv(customerPhone),
                 escapeCsv(''),
                 escapeCsv(''),
+                escapeCsv(salespersonName),
                 escapeCsv(customerAddress.address),
                 escapeCsv(customerAddress.city),
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
+                escapeCsv(''),
                 escapeCsv(formatMoney(0)),
                 escapeCsv(formatMoney(0)),
+                escapeCsv('0%'),
+                escapeCsv(''),
                 escapeCsv('Unknown'),
+                escapeCsv(''),
                 escapeCsv(formatMoney(orderTotal)),
                 escapeCsv(formatMoney(discount)),
                 escapeCsv(formatMoney(invoiceTotal)),
@@ -630,17 +687,23 @@ async function main() {
         for (const item of items) {
             rows.push([
                 escapeCsv(invoiceNumber),
+                escapeCsv(invoiceDate),
                 escapeCsv(customerName),
                 escapeCsv(customerPhone),
                 escapeCsv(''),
                 escapeCsv(''),
+                escapeCsv(salespersonName),
                 escapeCsv(customerAddress.address),
                 escapeCsv(customerAddress.city),
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
+                escapeCsv(item?.name || ''),
                 escapeCsv(formatMoney(getZohoItemPrice(item))),
                 escapeCsv(formatMoney(getZohoItemTax(item))),
+                escapeCsv(`${getZohoItemTaxPct(item)}%`),
+                escapeCsv(item?.hsn_or_sac || ''),
                 escapeCsv(getCategoryFromHsn(item?.hsn_or_sac)),
+                escapeCsv(''),
                 escapeCsv(formatMoney(orderTotal)),
                 escapeCsv(formatMoney(discount)),
                 escapeCsv(formatMoney(invoiceTotal)),

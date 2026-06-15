@@ -55,6 +55,12 @@ export default function Navigation() {
                         Grievances
                     </Link>
                     <Link
+                        href="/search-orders"
+                        className={`nav-link ${pathname === '/search-orders' ? 'active' : ''}`}
+                    >
+                        Search Orders
+                    </Link>
+                    <Link
                         href="/admin"
                         className={`nav-link ${pathname === '/admin' ? 'active' : ''}`}
                     >
