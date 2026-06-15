@@ -59,13 +59,10 @@ export const INDIAN_STATE_NAMES: Record<string, string> = {
 
 // --- Salesperson ---
 export enum Salesperson {
-  Utkarsh = 'Utkarsh',
-  Karamveer = 'Karamveer',
-  Aviral = 'Aviral',
+  Daksh = 'Daksh',
   Drishti = 'Drishti',
   Apporva = 'Apporva',
   Bhavya = 'Bhavya',
-  Vishal = 'Vishal',
   Bhavana = 'Bhavana',
   Other = 'Other',
 }

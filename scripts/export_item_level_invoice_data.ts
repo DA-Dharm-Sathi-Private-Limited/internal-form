@@ -306,8 +306,8 @@ function getZohoItemPrice(item: any): number {
 }
 
 function getZohoItemTax(item: any): number {
-    const qty = Number(item?.quantity) || 0;
-    const taxAmount = Number(item?.tax_amount) || 0;
+    const qty = Number(item?.quantity) || 1;
+    const taxAmount = Number(item?.tax_amount) || Number(item?.item_tax) || 0;
     if (qty > 0) return round2(taxAmount / qty);
 
     const rate = Number(item?.rate) || 0;
@@ -336,7 +336,7 @@ function getZohoOrderTotal(invoice: any): number {
         return round2((Number.isFinite(subTotal) ? subTotal : 0) + (Number.isFinite(taxTotal) ? taxTotal : 0));
     }
 
-    const items = Array.isArray(invoice?.line_items) ? invoice.line_items : [];
+    const items = Array.isArray(invoice?.invoice_items) ? invoice.invoice_items : (Array.isArray(invoice?.line_items) ? invoice.line_items : []);
     return round2(items.reduce((sum: number, item: any) => {
         return sum + ((Number(item?.item_total) || 0) + (Number(item?.tax_amount) || 0));
     }, 0));
@@ -508,6 +508,7 @@ async function main() {
         'State',
         'Pincode',
         'Item Name',
+        'Quantity',
         'Price of Each Item',
         'Tax of Each Item',
         'Tax Percentage',
@@ -550,6 +551,7 @@ async function main() {
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
                 escapeCsv(''),
+                escapeCsv(''),
                 escapeCsv(formatMoney(0)),
                 escapeCsv(formatMoney(0)),
                 escapeCsv('0%'),
@@ -579,6 +581,7 @@ async function main() {
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
                 escapeCsv(item?.name || ''),
+                escapeCsv(item?.quantity || 1),
                 escapeCsv(formatMoney(getMongoItemPrice(item))),
                 escapeCsv(formatMoney(getMongoItemTax(item))),
                 escapeCsv(`${getMongoItemTaxPct(item)}%`),
@@ -640,7 +643,7 @@ async function main() {
             continue;
         }
 
-        const items = Array.isArray(invoice.line_items) ? invoice.line_items : [];
+        const items = Array.isArray(invoice?.invoice_items) ? invoice.invoice_items : (Array.isArray(invoice?.line_items) ? invoice.line_items : []);
         const invoiceDate = formatDateDDMMYYYY(invoice.date);
         const customerName = invoice.customer_name || '';
         const customerPhone = extractZohoPhone(invoice);
@@ -670,6 +673,7 @@ async function main() {
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
                 escapeCsv(''),
+                escapeCsv(''),
                 escapeCsv(formatMoney(0)),
                 escapeCsv(formatMoney(0)),
                 escapeCsv('0%'),
@@ -698,6 +702,7 @@ async function main() {
                 escapeCsv(customerAddress.state),
                 escapeCsv(customerAddress.pincode),
                 escapeCsv(item?.name || ''),
+                escapeCsv(item?.quantity || 1),
                 escapeCsv(formatMoney(getZohoItemPrice(item))),
                 escapeCsv(formatMoney(getZohoItemTax(item))),
                 escapeCsv(`${getZohoItemTaxPct(item)}%`),

@@ -86,10 +86,7 @@ export default function GrievanceForm({ onSuccess }: { onSuccess?: () => void })
                             required
                         >
                             <option value="" disabled>Select a salesperson</option>
-                            <option value="aviral">aviral</option>
-                            <option value="utkarsh">utkarsh</option>
-                            <option value="raj">raj</option>
-                            <option value="karamveer">karamveer</option>
+                            <option value="daksh">Daksh</option>
                         </select>
                     </div>
 
