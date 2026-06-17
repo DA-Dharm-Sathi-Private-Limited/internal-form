@@ -61,6 +61,10 @@ const OrderSchema = new mongoose.Schema(
             type: Number,
             default: null,
         },
+        invoiceDate: {
+            type: Date,
+            default: Date.now,
+        },
         salespersonName: {
             type: String,
             default: '',

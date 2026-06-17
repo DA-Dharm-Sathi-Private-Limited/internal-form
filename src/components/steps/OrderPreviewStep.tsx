@@ -131,6 +131,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 // no longer send description to Zoho.
                 invoiceItems: finalInvoiceItems,
                 invoiceTotal: zohoInvoiceTotal || grandTotal,
+                invoiceDate: formData.date,
                 salespersonName: formData.salesperson_name,
                 paymentMode: formData.payment_mode || 'Prepaid',
                 status: formData.isSelfShipped ? 'SELF_SHIPPED' : 'PENDING_SHIPPING',

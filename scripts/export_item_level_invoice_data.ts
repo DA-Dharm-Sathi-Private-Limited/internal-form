@@ -49,6 +49,7 @@ import { HSN_TAX_RATES } from '../src/lib/tax';
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
@@ -58,6 +59,7 @@ interface CliArgs {
     from: string;
     to: string;
     dbOnly: boolean;
+    voidOnly: boolean;
 }
 
 interface HsnCategory {
@@ -97,6 +99,7 @@ function parseCliArgs(argv: string[]): CliArgs {
         from: '2026-01-01',
         to: defaultTo,
         dbOnly: false,
+        voidOnly: false,
     };
 
     for (const raw of argv) {
@@ -104,6 +107,7 @@ function parseCliArgs(argv: string[]): CliArgs {
         else if (raw.startsWith('--from=')) args.from = raw.split('=')[1];
         else if (raw.startsWith('--to=')) args.to = raw.split('=')[1];
         else if (raw === '--db-only') args.dbOnly = true;
+        else if (raw === '--void') args.voidOnly = true;
     }
 
     return args;
@@ -299,10 +303,12 @@ function getMongoDiscount(order: any): number {
 
 function getZohoItemPrice(item: any): number {
     const qty = Number(item?.quantity) || 0;
-    const rate = Number(item?.rate) || 0;
+    // Zoho invoice items use 'price' (tax-exclusive per-unit); fall back to 'rate'
+    const price = Number(item?.price) || Number(item?.rate) || 0;
     const taxAmount = Number(item?.tax_amount) || 0;
-    if (qty > 0) return round2(rate + (taxAmount / qty));
-    return round2(rate);
+    // Return tax-inclusive per-unit price to match DB convention
+    if (qty > 0) return round2(price + (taxAmount / qty));
+    return round2(price);
 }
 
 function getZohoItemTax(item: any): number {
@@ -310,13 +316,13 @@ function getZohoItemTax(item: any): number {
     const taxAmount = Number(item?.tax_amount) || Number(item?.item_tax) || 0;
     if (qty > 0) return round2(taxAmount / qty);
 
-    const rate = Number(item?.rate) || 0;
+    const price = Number(item?.price) || Number(item?.rate) || 0;
     const taxPct = Number(item?.tax_percentage);
-    if (Number.isFinite(taxPct)) return round2(rate * (taxPct / 100));
+    if (Number.isFinite(taxPct)) return round2(price * (taxPct / 100));
 
     const hsn = String(item?.hsn_or_sac || '');
     const mappedPct = HSN_TAX_RATES[hsn];
-    if (Number.isFinite(mappedPct)) return round2(rate * (mappedPct / 100));
+    if (Number.isFinite(mappedPct)) return round2(price * (mappedPct / 100));
 
     return round2(taxAmount);
 }
@@ -404,6 +410,16 @@ async function fetchZohoInvoiceSummaries(zoho: any, from: string, to: string) {
     return map;
 }
 
+async function fetchZohoVoidInvoices(zoho: any, from: string, to: string): Promise<Array<{ number: string; id: string }>> {
+    console.log(dim(`Fetching VOID invoices from Zoho Billing (${from} to ${to})...`));
+    const all = await zoho.fetchAllInvoices({ statusMask: 'void', dateStart: from, dateEnd: to });
+    console.log(green(`✅ Found ${all.length} void invoices in Zoho.`));
+
+    return all
+        .filter((inv: any) => inv.invoice_number)
+        .map((inv: any) => ({ number: inv.invoice_number, id: inv.invoice_id }));
+}
+
 async function fetchZohoFullDetails(zoho: any, invoiceIds: Array<{ number: string; id: string }>) {
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 500;
@@ -447,50 +463,65 @@ async function main() {
     console.log(bold('\n📦 Item-Level Invoice Export\n'));
     console.log(`Output:       ${cyan(args.output)}`);
     console.log(`Date Filter:  ${args.from} → ${args.to}`);
-    if (args.dbOnly) console.log(yellow('Mode:         DB-only (skipping Zoho)'));
+    if (args.voidOnly) console.log(yellow('Mode:         VOID-only (Zoho void invoices, skipping DB)'));
+    else if (args.dbOnly) console.log(yellow('Mode:         DB-only (skipping Zoho)'));
 
     const { Order, zoho } = await loadDependencies();
 
-    const dbMap = await fetchMongoOrders(Order, args.from, args.to);
+    // ── VOID-ONLY MODE: skip DB, fetch only void invoices from Zoho ──
+    let dbMap = new Map<string, any>();
+    let inBoth: string[] = [];
+    let dbOnly: string[] = [];
+    let zohoOnly: Array<{ number: string; id: string }> = [];
+    let zohoFullDetails = new Map<string, any>();
 
-    let zohoMap = new Map<string, any>();
-    if (!args.dbOnly) {
-        zohoMap = await fetchZohoInvoiceSummaries(zoho, args.from, args.to);
-    }
+    if (args.voidOnly) {
+        zohoOnly = await fetchZohoVoidInvoices(zoho, args.from, args.to);
+        console.log(`\n  Void invoices to export: ${yellow(String(zohoOnly.length))}`);
 
-    const allInvoiceNumbers = new Set<string>([...dbMap.keys(), ...zohoMap.keys()]);
-    console.log(dim(`\nTotal unique invoice numbers across systems: ${allInvoiceNumbers.size}`));
+        if (zohoOnly.length > 0) {
+            console.log(dim('\nFetching full Zoho details for void invoices...'));
+            zohoFullDetails = await fetchZohoFullDetails(zoho, zohoOnly);
+            console.log(green(`✅ Fetched ${zohoFullDetails.size} full invoice details.`));
+        }
+    } else {
+        // ── NORMAL MODE ──
+        dbMap = await fetchMongoOrders(Order, args.from, args.to);
 
-    const inBoth: string[] = [];
-    const dbOnly: string[] = [];
-    const zohoOnly: Array<{ number: string; id: string }> = [];
+        let zohoMap = new Map<string, any>();
+        if (!args.dbOnly) {
+            zohoMap = await fetchZohoInvoiceSummaries(zoho, args.from, args.to);
+        }
 
-    for (const invoiceNumber of allInvoiceNumbers) {
-        const inDb = dbMap.has(invoiceNumber);
-        const inZoho = zohoMap.has(invoiceNumber);
+        const allInvoiceNumbers = new Set<string>([...dbMap.keys(), ...zohoMap.keys()]);
+        console.log(dim(`\nTotal unique invoice numbers across systems: ${allInvoiceNumbers.size}`));
 
-        if (inDb && inZoho) {
-            inBoth.push(invoiceNumber);
-        } else if (inDb) {
-            dbOnly.push(invoiceNumber);
-        } else if (inZoho) {
-            const zohoSummary = zohoMap.get(invoiceNumber);
-            const zohoDate = toDateStr(zohoSummary?.date);
-            if (isDateInRange(zohoDate, args.from, args.to)) {
-                zohoOnly.push({ number: invoiceNumber, id: zohoSummary.invoice_id });
+        for (const invoiceNumber of allInvoiceNumbers) {
+            const inDb = dbMap.has(invoiceNumber);
+            const inZoho = zohoMap.has(invoiceNumber);
+
+            if (inDb && inZoho) {
+                inBoth.push(invoiceNumber);
+            } else if (inDb) {
+                dbOnly.push(invoiceNumber);
+            } else if (inZoho) {
+                const zohoSummary = zohoMap.get(invoiceNumber);
+                const zohoDate = toDateStr(zohoSummary?.date);
+                if (isDateInRange(zohoDate, args.from, args.to)) {
+                    zohoOnly.push({ number: invoiceNumber, id: zohoSummary.invoice_id });
+                }
             }
         }
-    }
 
-    console.log(`  In both (Using DB):   ${green(String(inBoth.length))}`);
-    console.log(`  DB only (Using DB):   ${green(String(dbOnly.length))}`);
-    console.log(`  Zoho only (Using Zoho): ${yellow(String(zohoOnly.length))}`);
+        console.log(`  In both (Using DB):   ${green(String(inBoth.length))}`);
+        console.log(`  DB only (Using DB):   ${green(String(dbOnly.length))}`);
+        console.log(`  Zoho only (Using Zoho): ${yellow(String(zohoOnly.length))}`);
 
-    let zohoFullDetails = new Map<string, any>();
-    if (zohoOnly.length > 0) {
-        console.log(dim('\nFetching full Zoho details for Zoho-only invoices...'));
-        zohoFullDetails = await fetchZohoFullDetails(zoho, zohoOnly);
-        console.log(green(`✅ Fetched ${zohoFullDetails.size} full invoice details.`));
+        if (zohoOnly.length > 0) {
+            console.log(dim('\nFetching full Zoho details for Zoho-only invoices...'));
+            zohoFullDetails = await fetchZohoFullDetails(zoho, zohoOnly);
+            console.log(green(`✅ Fetched ${zohoFullDetails.size} full invoice details.`));
+        }
     }
 
     console.log(dim('\nBuilding CSV rows...'));
@@ -717,6 +748,89 @@ async function main() {
         }
     }
 
+    // ─── Verification: Invoice Total vs Item Sum ───
+    console.log(bold('\n━━━ Verification: Invoice Total vs Item Sum ━━━'));
+
+    interface VerifyMismatch {
+        invoiceNumber: string;
+        source: string;
+        invoiceTotal: number;
+        itemSum: number;
+        diff: number;
+    }
+
+    const mismatches: VerifyMismatch[] = [];
+
+    // Verify DB invoices (inBoth + dbOnly)
+    // DB: invoiceTotal = sum(item_price_inclusive * qty) - discount
+    // item_price is tax-inclusive (final_price or (item_total + tax_amount) / qty)
+    for (const invoiceNumber of [...inBoth, ...dbOnly]) {
+        const order = dbMap.get(invoiceNumber);
+        if (!order) continue;
+
+        const items = Array.isArray(order.invoiceItems) ? order.invoiceItems : [];
+        if (items.length === 0) continue;
+
+        const invoiceTotal = getMongoInvoiceTotal(order);
+
+        // sum(item_price_inclusive * qty)
+        const itemSum = round2(items.reduce((sum: number, item: any) => {
+            const price = getMongoItemPrice(item); // tax-inclusive per-unit
+            const qty = Number(item?.quantity) || 1;
+            return sum + (price * qty);
+        }, 0));
+
+        const diff = round2(Math.abs(invoiceTotal - itemSum));
+        if (diff > 0.1) {
+            mismatches.push({ invoiceNumber, source: 'DB', invoiceTotal, itemSum, diff });
+        }
+    }
+
+    // Verify Zoho invoices (zohoOnly)
+    // Zoho: invoiceTotal = sum(price * qty + tax_amount) - discount
+    // price is tax-exclusive per-unit
+    const allZohoToVerify = [
+        ...zohoOnly.map(z => ({ number: z.number, source: 'Zoho' })),
+    ];
+
+    for (const { number: invoiceNumber, source } of allZohoToVerify) {
+        const invoice = zohoFullDetails.get(invoiceNumber);
+        if (!invoice) continue;
+
+        const items = Array.isArray(invoice?.invoice_items) ? invoice.invoice_items :
+            (Array.isArray(invoice?.line_items) ? invoice.line_items : []);
+        if (items.length === 0) continue;
+
+        const invoiceTotal = getZohoInvoiceTotal(invoice);
+
+        // sum(price * qty + tax_amount)
+        const itemSum = round2(items.reduce((sum: number, item: any) => {
+            const price = Number(item?.price) || Number(item?.rate) || 0;
+            const qty = Number(item?.quantity) || 1;
+            const taxAmount = Number(item?.tax_amount) || 0;
+            return sum + (price * qty + taxAmount);
+        }, 0));
+
+        const diff = round2(Math.abs(invoiceTotal - itemSum));
+        if (diff > 0.1) {
+            mismatches.push({ invoiceNumber, source, invoiceTotal, itemSum, diff });
+        }
+    }
+
+    if (mismatches.length > 0) {
+        console.log(red(`\n⚠ Found ${mismatches.length} invoice(s) with total vs item-sum mismatch (>±0.1):\n`));
+        for (const m of mismatches) {
+            console.log(
+                `  ${yellow(m.invoiceNumber)} [${m.source}] ` +
+                `Invoice: ₹${formatMoney(m.invoiceTotal)} | Items: ₹${formatMoney(m.itemSum)} | ` +
+                `Diff: ₹${formatMoney(m.diff)}`
+            );
+        }
+        console.log('');
+    } else {
+        console.log(green('\n✅ All invoices pass verification (invoice total matches item sum within ±0.1).\n'));
+    }
+
     const csvContent = rows.map((row) => row.join(',')).join('\n');
     const outputPath = path.resolve(process.cwd(), args.output);
     fs.writeFileSync(outputPath, csvContent, 'utf-8');
@@ -725,6 +839,9 @@ async function main() {
     console.log(`Total exported rows: ${green(String(rows.length - 1))}`);
     if (zohoWarnCount > 0) {
         console.log(`Warnings:            ${yellow(String(zohoWarnCount))} (Zoho details fetch failed)`);
+    }
+    if (mismatches.length > 0) {
+        console.log(`Mismatches:          ${red(String(mismatches.length))} (invoice total ≠ item sum)`);
     }
     console.log(`\n📁 Saved to: ${cyan(outputPath)}`);
 
