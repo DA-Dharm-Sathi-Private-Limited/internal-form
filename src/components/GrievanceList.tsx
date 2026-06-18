@@ -102,6 +102,7 @@ export default function GrievanceList({ refreshKey }: { refreshKey: number }) {
                                             {g.grievanceType === 'amount_gt_2000' ? 'Amount > 2000' :
                                              g.grievanceType === 'need_solution' ? 'Need Solution' :
                                              g.grievanceType === 'order_returned' ? 'Order Returned' :
+                                             g.grievanceType === 'invoice_deleted_updation_failed' ? '⚠ Invoice Update Failed' :
                                              g.grievanceType}
                                         </span>
                                     </td>

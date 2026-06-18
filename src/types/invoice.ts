@@ -101,6 +101,8 @@ export interface InvoiceItem {
   final_price?: number; // user-entered tax-inclusive price per unit
   cost_price: number; // mandatory cost price for each item
 
+  tax_percentage?: number;
+
   // UI-only helpers (never relied on by Zoho)
   tax_auto_corrected?: boolean;
   tax_correction_note?: string;

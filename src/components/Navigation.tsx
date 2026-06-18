@@ -61,6 +61,12 @@ export default function Navigation() {
                         Search Orders
                     </Link>
                     <Link
+                        href="/edit-invoice"
+                        className={`nav-link ${pathname === '/edit-invoice' ? 'active' : ''}`}
+                    >
+                        Edit Invoice
+                    </Link>
+                    <Link
                         href="/admin"
                         className={`nav-link ${pathname === '/admin' ? 'active' : ''}`}
                     >
