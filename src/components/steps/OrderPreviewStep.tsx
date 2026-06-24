@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { CombinedFormData } from '@/types/wizard';
 import stateCodesData from '@/data/state-codes.json';
 import { isInterstateOrder, get18PctTaxId } from '@/lib/tax';
+import { zohoService } from '@/services/zoho';
+import { ordersService } from '@/services/orders';
 
 interface Props {
     formData: CombinedFormData;
@@ -91,21 +93,16 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 ],
             };
 
-            const invoiceRes = await fetch('/api/invoices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(invoicePayload)
-            });
+            const invoiceData = await zohoService.createInvoice(invoicePayload as Record<string, unknown>);
 
-            const invoiceData = await invoiceRes.json();
-
-            if (!invoiceRes.ok) {
-                throw new Error(invoiceData.error || 'Failed to create invoice in Zoho');
+            const invoice = (invoiceData as { invoice?: Record<string, unknown> }).invoice;
+            if (!invoice) {
+                throw new Error((invoiceData as { error?: string }).error || 'Failed to create invoice in Zoho');
             }
 
-            const createdInvoiceId = invoiceData.invoice.invoice_id;
-            const createdInvoiceNumber = invoiceData.invoice.invoice_number;
-            const zohoInvoiceTotal = Number(invoiceData.invoice.total) || 0;
+            const createdInvoiceId = invoice.invoice_id as string;
+            const createdInvoiceNumber = invoice.invoice_number as string;
+            const zohoInvoiceTotal = Number(invoice.total) || 0;
 
             // 2. Save Order to Database
             const orderPayload = {
@@ -138,16 +135,11 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 selfShipped: !!formData.isSelfShipped
             };
 
-            const orderRes = await fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderPayload)
-            });
+            const orderResult = await ordersService.create(orderPayload);
 
-            if (!orderRes.ok) {
-                const orderError = await orderRes.json();
-                console.error('Failed to save to MongoDB:', orderError);
-                throw new Error(`Invoice created in Zoho (#${createdInvoiceNumber}), but failed to save to database: ${orderError.error || 'Unknown DB error'}. Please contact admin.`);
+            if (!orderResult.success) {
+                console.error('Failed to save to MongoDB:', orderResult.error);
+                throw new Error(`Invoice created in Zoho (#${createdInvoiceNumber}), but failed to save to database: ${orderResult.error || 'Unknown DB error'}. Please contact admin.`);
             }
 
             // 3. Update state and proceed

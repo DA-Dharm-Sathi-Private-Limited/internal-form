@@ -71,7 +71,7 @@ export interface CombinedFormData {
     plannedShipments?: Array<{
         id: string;
         vendor: string; // warehouse/origin string
-        deliveryPartner: 'Delhivery' | 'DTDC' | 'SELF';
+        deliveryPartner: 'Delhivery' | 'DTDC' | 'SELF' | 'Shadowfax';
         warehouse: string;
         items: Array<{
             lineIndex: number;

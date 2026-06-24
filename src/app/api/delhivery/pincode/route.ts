@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkPincodeServiceability } from '@/lib/delhivery';
+import { withError, fail } from '@/lib/api-handler';
 
-export async function GET(request: NextRequest) {
-    try {
-        const searchParams = request.nextUrl.searchParams;
-        const code = searchParams.get('code');
+export const GET = withError(async (request: NextRequest) => {
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get('code');
 
-        if (!code) {
-            return NextResponse.json({ error: 'code query parameter is required' }, { status: 400 });
-        }
+  if (!code) {
+    return fail('code query parameter is required', 400);
+  }
 
-        const data = await checkPincodeServiceability(code);
-        return NextResponse.json(data);
-    } catch (error) {
-        console.error('Pincode serviceability error:', error);
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to check pincode' },
-            { status: 500 }
-        );
-    }
-}
+  const data = await checkPincodeServiceability(code);
+  return NextResponse.json(data);
+});

@@ -6,21 +6,20 @@
  * be rendered into a custom HTML layout.
  */
 
+import { delhiveryService } from '@/services/delhivery';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getLabelData(waybill: string): Promise<Record<string, any>> {
-  const res = await fetch(`/api/delhivery/label?waybill=${waybill}&pdf_size=A4`);
-  if (!res.ok) throw new Error('Failed to fetch label data');
-  const data = await res.json();
+  const data = await delhiveryService.getLabel(waybill);
 
-  // Delhivery's pdf=false response can vary in structure — handle all cases
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pkg: Record<string, any> = {};
   if (Array.isArray(data) && data.length > 0) {
     pkg = data[0];
-  } else if (data?.packages && Array.isArray(data.packages) && data.packages.length > 0) {
-    pkg = data.packages[0];
+  } else if ((data as Record<string, unknown>)?.packages && Array.isArray((data as Record<string, unknown>).packages) && (data as Record<string, unknown[]>).packages.length > 0) {
+    pkg = (data as Record<string, unknown[]>).packages[0] as Record<string, any>;
   } else if (data && typeof data === 'object') {
-    pkg = data;
+    pkg = data as unknown as Record<string, unknown>;
   }
   return pkg;
 }

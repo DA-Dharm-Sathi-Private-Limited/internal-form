@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { grievanceService } from '@/services/grievances';
 
 interface Grievance {
     _id: string;
@@ -34,13 +35,10 @@ export default function GrievanceList({ refreshKey }: { refreshKey: number }) {
     const fetchGrievances = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/grievances?page=${page}&limit=${limit}`);
-            if (!res.ok) throw new Error('Failed to fetch grievances');
-            const data = await res.json();
-            
+            const data = await grievanceService.list(page, limit);
             if (data.success) {
-                setGrievances(data.grievances);
-                setPagination(data.pagination);
+                setGrievances(data.grievances as Grievance[]);
+                setPagination(data.pagination as Pagination);
             } else {
                 throw new Error(data.error || 'Failed to fetch grievances');
             }

@@ -6,6 +6,8 @@ import LineItemRow from '@/components/LineItemRow';
 import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
 import { isInterstateOrder, normalizeItemTaxForContext, validateTaxesForOrder } from '@/lib/tax';
 import { toast } from 'sonner';
+import { zohoService } from '@/services/zoho';
+import { ordersService } from '@/services/orders';
 
 interface Props {
     formData: CombinedFormData;
@@ -46,13 +48,13 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
         async function loadData() {
             setLoading(true);
             try {
-                const [itemsRes, taxesRes] = await Promise.all([
-                    fetch('/api/zoho/items'),
-                    fetch('/api/zoho/taxes')
+                const [items, taxes] = await Promise.all([
+                    zohoService.getItems(),
+                    zohoService.getTaxes()
                 ]);
 
-                if (itemsRes.ok) setZohoItems(await itemsRes.json());
-                if (taxesRes.ok) setZohoTaxes(await taxesRes.json());
+                setZohoItems(items as ZohoItem[]);
+                setZohoTaxes(taxes as ZohoTax[]);
             } catch (err) {
                 console.error("Failed to load catalog data:", err);
                 toast.error("Failed to load Zoho item/tax data.");
@@ -214,15 +216,8 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
         try {
             // Only send the minimal array of objects with cost_price to save bandwidth and prevent overwriting
             const lightweightItems = formData.invoice_items.map(item => ({ cost_price: item.cost_price }));
-            const res = await fetch(`/api/orders/${formData.orderId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    invoiceItems: lightweightItems,
-                })
-            });
-            
-            if (!res.ok) {
+            const result = await ordersService.update(formData.orderId!, { invoiceItems: lightweightItems });
+            if (!result.success) {
                 throw new Error("Failed to save edited items");
             }
 

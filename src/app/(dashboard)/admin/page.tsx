@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { ordersService } from '@/services/orders';
 
 interface Order {
     _id: string;
@@ -28,11 +29,9 @@ export default function AdminPage() {
     const fetchAllOrders = async () => {
         try {
             setLoading(true);
-            // Fetch ALL orders (not just pending) — custom endpoint
-            const res = await fetch('/api/orders?all=true');
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setOrders(data.orders);
+            const data = await ordersService.list(true);
+            if (data.success) {
+                setOrders(data.orders as unknown as Order[]);
             }
         } catch {
             toast.error('Failed to fetch orders');
@@ -48,13 +47,9 @@ export default function AdminPage() {
     const handleDelete = async (order: Order) => {
         setDeletingId(order._id);
         try {
-            const res = await fetch(`/api/orders/${order.orderId}`, {
-                method: 'DELETE',
-            });
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                toast.success(data.message);
+            const data = await ordersService.del(order.orderId);
+            if (data.success) {
+                toast.success((data as { message?: string }).message || 'Order deleted');
                 setOrders(prev => prev.filter(o => o._id !== order._id));
             } else {
                 toast.error(data.error || 'Failed to delete');

@@ -67,8 +67,8 @@ const dim   = (s: string) => `\x1b[2m${s}\x1b[0m`;
 // ── Main ────────────────────────────────────────────────────────
 async function main() {
     const args = parseArgs(process.argv.slice(2));
-    console.log(bold('\n📊 Zoho ↔ MongoDB Invoice Deep Comparison\n'));
-    console.log(`Output: ${cyan(args.output)}`);
+    // console.log(bold('\n📊 Zoho ↔ MongoDB Invoice Deep Comparison\n'));
+    // console.log(`Output: ${cyan(args.output)}`);
     if (args.from || args.to) console.log(`Date filter: ${args.from || '—'} → ${args.to || '—'}`);
 
     // Dynamic imports (dotenv must load first)
@@ -79,12 +79,12 @@ async function main() {
     ]);
 
     // ── 1. Connect to MongoDB ───────────────────────────────────
-    console.log(dim('\nConnecting to MongoDB...'));
+    // console.log(dim('\nConnecting to MongoDB...'));
     await connectDB();
-    console.log(green('✅ MongoDB connected.'));
+    // console.log(green('✅ MongoDB connected.'));
 
     // ── 2. Fetch all orders from DB ─────────────────────────────
-    console.log(dim('Fetching orders from Database...'));
+    // console.log(dim('Fetching orders from Database...'));
     const dateQuery: Record<string, any> = {};
     if (args.from) dateQuery.$gte = new Date(args.from);
     if (args.to) {
@@ -97,7 +97,7 @@ async function main() {
     if (Object.keys(dateQuery).length > 0) dbQuery.createdAt = dateQuery;
 
     const dbOrders = await Order.find(dbQuery).lean() as any[];
-    console.log(green(`✅ Found ${dbOrders.length} orders in Database.`));
+    // console.log(green(`✅ Found ${dbOrders.length} orders in Database.`));
 
     // Build DB lookup maps
     const dbByOrderId = new Map<string, any>();
@@ -108,9 +108,9 @@ async function main() {
     }
 
     // ── 3. Fetch all invoices from Zoho ─────────────────────────
-    console.log(dim('Fetching all invoices from Zoho Billing (paginated)...'));
+    // console.log(dim('Fetching all invoices from Zoho Billing (paginated)...'));
     const allZohoInvoices = await zoho.fetchAllInvoices();
-    console.log(green(`✅ Found ${allZohoInvoices.length} invoices in Zoho.`));
+    // console.log(green(`✅ Found ${allZohoInvoices.length} invoices in Zoho.`));
 
     // Build Zoho lookup map by invoice_number
     const zohoByNumber = new Map<string, any>();
@@ -129,12 +129,12 @@ async function main() {
         if (inv.invoice_number) allInvoiceNumbers.add(inv.invoice_number);
     }
 
-    console.log(dim(`\nTotal unique invoice numbers to compare: ${allInvoiceNumbers.size}`));
+    // console.log(dim(`\nTotal unique invoice numbers to compare: ${allInvoiceNumbers.size}`));
 
     // ── 5. Fetch full details from Zoho for matched invoices ────
     // The list endpoint doesn't return line items, so we need to
     // fetch individual invoices that exist in both systems.
-    console.log(dim('Fetching full invoice details from Zoho for line-item comparison...'));
+    // console.log(dim('Fetching full invoice details from Zoho for line-item comparison...'));
 
     const matchedInvoiceNumbers: string[] = [];
     for (const num of allInvoiceNumbers) {
@@ -142,7 +142,7 @@ async function main() {
             matchedInvoiceNumbers.push(num);
         }
     }
-    console.log(dim(`Invoices in both systems: ${matchedInvoiceNumbers.length}`));
+    // console.log(dim(`Invoices in both systems: ${matchedInvoiceNumbers.length}`));
 
     // Fetch full Zoho details in batches
     const BATCH_SIZE = 5;
@@ -178,10 +178,10 @@ async function main() {
             await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
         }
     }
-    console.log(green('\n✅ Full Zoho details fetched.'));
+    // console.log(green('\n✅ Full Zoho details fetched.'));
 
     // ── 6. Deep Comparison ──────────────────────────────────────
-    console.log(bold('\n━━━ Running Deep Comparison ━━━\n'));
+    // console.log(bold('\n━━━ Running Deep Comparison ━━━\n'));
 
     const rows: ComparisonRow[] = [];
     let matchCount = 0;
@@ -421,32 +421,32 @@ async function main() {
     // ── 8. Summary ──────────────────────────────────────────────
     const mismatchRows = rows.filter(r => r.match === 'NO');
 
-    console.log(bold('\n━━━ Summary ━━━'));
-    console.log(`Total unique invoices:     ${allInvoiceNumbers.size}`);
-    console.log(`In both systems:           ${matchedInvoiceNumbers.length}`);
-    console.log(`Zoho only:                 ${yellow(String(zohoOnlyCount))}`);
-    console.log(`DB only:                   ${yellow(String(dbOnlyCount))}`);
-    console.log(`Total field comparisons:   ${rows.length}`);
-    console.log(`Matching fields:           ${green(String(matchCount))}`);
-    console.log(`Mismatched fields:         ${red(String(mismatchCount))}`);
-    console.log(`\n📁 CSV saved to: ${cyan(outputPath)}`);
-    console.log(`   Total rows: ${rows.length}`);
+    // console.log(bold('\n━━━ Summary ━━━'));
+    // console.log(`Total unique invoices:     ${allInvoiceNumbers.size}`);
+    // console.log(`In both systems:           ${matchedInvoiceNumbers.length}`);
+    // console.log(`Zoho only:                 ${yellow(String(zohoOnlyCount))}`);
+    // console.log(`DB only:                   ${yellow(String(dbOnlyCount))}`);
+    // console.log(`Total field comparisons:   ${rows.length}`);
+    // console.log(`Matching fields:           ${green(String(matchCount))}`);
+    // console.log(`Mismatched fields:         ${red(String(mismatchCount))}`);
+    // console.log(`\n📁 CSV saved to: ${cyan(outputPath)}`);
+    // console.log(`   Total rows: ${rows.length}`);
 
     if (mismatchRows.length > 0) {
-        console.log(yellow(`\n⚠️  ${mismatchRows.length} mismatched field(s) found. Open the CSV for details.`));
+        // console.log(yellow(`\n⚠️  ${mismatchRows.length} mismatched field(s) found. Open the CSV for details.`));
 
         // Show top 10 mismatches in console
-        console.log(bold('\nTop mismatches (first 10):'));
+        // console.log(bold('\nTop mismatches (first 10):'));
         for (const row of mismatchRows.slice(0, 10)) {
-            console.log(`  ${red('✗')} ${row.invoiceNumber} → ${row.field}`);
-            console.log(`    DB:   ${row.dbValue}`);
-            console.log(`    Zoho: ${row.zohoValue}`);
+            // console.log(`  ${red('✗')} ${row.invoiceNumber} → ${row.field}`);
+            // console.log(`    DB:   ${row.dbValue}`);
+            // console.log(`    Zoho: ${row.zohoValue}`);
         }
         if (mismatchRows.length > 10) {
-            console.log(dim(`  ... and ${mismatchRows.length - 10} more (see CSV)`));
+            // console.log(dim(`  ... and ${mismatchRows.length - 10} more (see CSV)`));
         }
     } else {
-        console.log(green('\n🎉 All fields match! No discrepancies found.'));
+        // console.log(green('\n🎉 All fields match! No discrepancies found.'));
     }
 
     process.exit(0);

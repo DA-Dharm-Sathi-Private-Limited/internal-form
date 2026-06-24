@@ -1,49 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { NextRequest } from 'next/server';
 import Order from '@/models/Order';
+import { withDb, success, fail } from '@/lib/api-handler';
 
-export async function GET(request: NextRequest) {
-    try {
-        await connectDB();
-        
-        const searchParams = request.nextUrl.searchParams;
-        const query = searchParams.get('q');
-        const type = searchParams.get('type'); // 'orderId', 'customer', 'astrologer'
+export const GET = withDb(async (request: NextRequest) => {
+  const searchParams = request.nextUrl.searchParams;
+  const query = searchParams.get('q');
+  const type = searchParams.get('type');
 
-        if (!query || query.trim() === '') {
-            return NextResponse.json({ success: true, orders: [] }, { status: 200 });
-        }
+  if (!query || query.trim() === '') {
+    return success({ orders: [] });
+  }
 
-        const safeQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex characters
-        
-        let filter = {};
+  const safeQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        switch (type) {
-            case 'orderId':
-                // Search exact or partial orderId
-                filter = { orderId: { $regex: `^${safeQuery}`, $options: 'i' } };
-                break;
-            case 'customer':
-                filter = { 'customerDetails.customer_name': { $regex: `^${safeQuery}`, $options: 'i' } };
-                break;
-            case 'astrologer':
-                filter = { 'astrologerDetails.astrologerName': { $regex: `^${safeQuery}`, $options: 'i' } };
-                break;
-            default:
-                return NextResponse.json({ success: false, error: 'Invalid search type' }, { status: 400 });
-        }
+  let filter = {};
 
-        // Limit results to prevent massive payloads if someone searches "A"
-        const orders = await Order.find(filter)
-            .sort({ createdAt: -1 })
-            .limit(50);
-            
-        return NextResponse.json({ success: true, orders }, { status: 200 });
-    } catch (error: unknown) {
-        console.error('Error searching orders:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
-        );
-    }
-}
+  switch (type) {
+    case 'orderId':
+      filter = { orderId: { $regex: `^${safeQuery}`, $options: 'i' } };
+      break;
+    case 'customer':
+      filter = { 'customerDetails.customer_name': { $regex: `^${safeQuery}`, $options: 'i' } };
+      break;
+    case 'astrologer':
+      filter = { 'astrologerDetails.astrologerName': { $regex: `^${safeQuery}`, $options: 'i' } };
+      break;
+    default:
+      return fail('Invalid search type', 400);
+  }
+
+  const orders = await Order.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+  return success({ orders });
+});

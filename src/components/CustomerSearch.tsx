@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Customer, GSTTreatment } from '@/types/invoice';
 import { INDIAN_STATES, INDIAN_STATE_NAMES } from '@/types/invoice';
 import stateCodesData from '@/data/state-codes.json';
+import { customerService } from '@/services/customers';
+import { delhiveryService } from '@/services/delhivery';
 
 interface CustomerSearchProps {
     onSelect: (customer: Customer) => void;
@@ -63,11 +65,8 @@ export default function CustomerSearch({
 
         setLoading(true);
         try {
-            const res = await fetch(
-                `/api/customers?q=${encodeURIComponent(searchQuery)}`
-            );
-            const data = await res.json();
-            setResults(data.customers || []);
+            const data = await customerService.search(searchQuery);
+            setResults(data.customers as Customer[] || []);
             setShowDropdown(true);
         } catch (err) {
             console.error('Customer search failed:', err);
@@ -122,10 +121,10 @@ export default function CustomerSearch({
         if (!pin || pin.length !== 6) return;
         setCheckingPincode(true);
         try {
-            const res = await fetch(`/api/delhivery/pincode?code=${pin}`);
-            const data = await res.json();
-            if (data.delivery_codes && data.delivery_codes.length > 0) {
-                const deliveryCenter = data.delivery_codes[0].postal_code;
+            const data = await delhiveryService.checkPincode(pin);
+            if (data.delivery_codes && (data.delivery_codes as unknown[]).length > 0) {
+                const codes = data.delivery_codes as { postal_code?: Record<string, string> }[];
+                const deliveryCenter = codes[0].postal_code as Record<string, string>;
                 const delhiveryStateCode = deliveryCenter.state_code || '';
                 const delhiveryStateName = deliveryCenter.state || '';
                 const delhiveryCity = deliveryCenter.district || deliveryCenter.city || deliveryCenter.center || '';
@@ -186,24 +185,19 @@ export default function CustomerSearch({
             if (newCustomer.phone) body.phone = `+91${newCustomer.phone}`;
             if (billingAddress) body.billing_address = billingAddress;
 
-            const res = await fetch('/api/customers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
+            const data = await customerService.create(body);
 
-            const data = await res.json();
-
-            if (data.customer) {
+            const cust = data.customer as Record<string, unknown> | undefined;
+            if (cust) {
                 // Attach prefilled address/phone so CustomerStep can skip the Zoho re-fetch
                 const createdWithPrefill = {
-                    customer_id: data.customer.customer_id,
-                    display_name: data.customer.display_name,
-                    email: data.customer.email,
-                    company_name: data.customer.company_name,
-                    gst_no: data.customer.gst_no,
-                    gst_treatment: data.customer.gst_treatment,
-                    place_of_contact: data.customer.place_of_contact,
+                    customer_id: cust.customer_id,
+                    display_name: cust.display_name,
+                    email: cust.email,
+                    company_name: cust.company_name,
+                    gst_no: cust.gst_no,
+                    gst_treatment: cust.gst_treatment,
+                    place_of_contact: cust.place_of_contact,
                     _prefilled: {
                         address: newCustomer.address,
                         pincode: newCustomer.pincode,
@@ -228,7 +222,7 @@ export default function CustomerSearch({
                     state: '',
                 });
             } else {
-                alert(data.message || 'Failed to create customer');
+                alert((data as Record<string, string>).message || 'Failed to create customer');
             }
         } catch (err) {
             console.error('Create customer failed:', err);

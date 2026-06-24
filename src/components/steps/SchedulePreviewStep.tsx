@@ -1,924 +1,530 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { CombinedFormData } from '@/types/wizard';
-import { DELHIIVERY_WAREHOUSES, WAREHOUSE_DETAILS, DelhiveryWarehouse } from '@/config/warehouses';
-import { ShipmentData } from '@/types/delhivery';
-import { SHIPPING_PROVIDERS } from '@/config/providers';
-type PlannedShipment = NonNullable<CombinedFormData['plannedShipments']>[0];
+import { WAREHOUSE_DETAILS, DelhiveryWarehouse } from '@/config/warehouses';
+import type { PlannedShipment } from '@/components/shipment/types';
+import { isSelfShipment } from '@/components/shipment/types';
+import { ShipmentForm } from '@/components/shipment/ShipmentForm';
+import { ItemAllocationTable } from '@/components/shipment/ItemAllocationTable';
+import { ShipmentEstimates } from '@/components/shipment/ShipmentEstimates';
+import { AddShipmentButtons } from '@/components/shipment/AddShipmentButtons';
+import { useShipmentEstimates } from '@/hooks/useShipmentEstimates';
+import { useOrderUpdate } from '@/hooks/useOrderUpdate';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorBox } from '@/components/ui/ErrorBox';
+import { delhiveryService } from '@/services/delhivery';
+
+const DELIVERY_PARTNER_OPTIONS = [
+  { value: 'Delhivery', label: 'Delhivery' },
+  { value: 'DTDC', label: 'DTDC' },
+  { value: 'Shadowfax', label: 'Shadowfax' },
+];
 
 interface Props {
-    formData: CombinedFormData;
-    updateForm: (data: Partial<CombinedFormData>) => void;
-    onNext: () => void;
-    onPrev: () => void;
+  formData: CombinedFormData;
+  updateForm: (data: Partial<CombinedFormData>) => void;
+  onNext: () => void;
+  onPrev: () => void;
+}
+
+function defaultShipment(formData: CombinedFormData): PlannedShipment {
+  return {
+    id: 'shipment-1',
+    vendor: formData.warehouse as string,
+    deliveryPartner: 'Delhivery',
+    warehouse: formData.warehouse as string,
+    items: formData.invoice_items.map((_, idx) => ({ lineIndex: idx, quantity: _.quantity })),
+    isSelfShipment: false,
+    shipping_mode: formData.shipping_mode || 'Surface',
+    payment_mode: formData.payment_mode || 'Prepaid',
+    fragile: formData.fragile || false,
+    weight: formData.weight || 200,
+    length: formData.length || 10,
+    width: formData.width || 10,
+    height: formData.height || 10,
+    products_desc: formData.products_desc || '',
+    cod_amount: undefined,
+    provider: '',
+    awb: '',
+  };
+}
+
+function hydrateShipment(sh: PlannedShipment, formData: CombinedFormData): PlannedShipment {
+  return {
+    ...sh,
+    shipping_mode: sh.shipping_mode || formData.shipping_mode || 'Surface',
+    payment_mode: sh.payment_mode || formData.payment_mode || 'Prepaid',
+    fragile: sh.fragile ?? formData.fragile ?? false,
+    weight: sh.weight ?? formData.weight ?? 200,
+    length: sh.length ?? formData.length ?? 10,
+    width: sh.width ?? formData.width ?? 10,
+    height: sh.height ?? formData.height ?? 10,
+    products_desc: sh.products_desc ?? formData.products_desc ?? '',
+    provider: sh.provider ?? '',
+    awb: sh.awb ?? '',
+  };
+}
+
+function applyShipmentUpdate(
+  prev: PlannedShipment[],
+  id: string,
+  updates: Partial<PlannedShipment>
+): PlannedShipment[] {
+  return prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
 }
 
 export default function SchedulePreviewStep({ formData, updateForm, onNext, onPrev }: Props) {
-    const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
-    const [expectedTats, setExpectedTats] = useState<Record<string, string>>({});
-    const [loadingPreview, setLoadingPreview] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
+  const [plannedShipments, setPlannedShipments] = useState<PlannedShipment[]>(() =>
+    formData.plannedShipments && formData.plannedShipments.length > 0
+      ? formData.plannedShipments.map((sh) => hydrateShipment(sh as PlannedShipment, formData))
+      : [defaultShipment(formData)]
+  );
 
-    // Local view over planned shipments; initialize from formData if present
-    const [plannedShipments, setPlannedShipments] = useState<PlannedShipment[]>(
-        formData.plannedShipments && formData.plannedShipments.length > 0
-            ? formData.plannedShipments.map((sh) => ({
-                ...sh,
-                shipping_mode: sh.shipping_mode || formData.shipping_mode || 'Surface',
-                payment_mode: sh.payment_mode || formData.payment_mode || 'Prepaid',
-                fragile: sh.fragile ?? formData.fragile ?? false,
-                weight: sh.weight ?? formData.weight ?? 200,
-                length: sh.length ?? formData.length ?? 10,
-                width: sh.width ?? formData.width ?? 10,
-                height: sh.height ?? formData.height ?? 10,
-                products_desc: sh.products_desc ?? formData.products_desc ?? '',
-                cod_amount: sh.cod_amount,
-                provider: sh.provider ?? '',
-                awb: sh.awb ?? '',
-            }))
-            : [
-                {
-                    id: 'shipment-1',
-                    vendor: formData.warehouse as string,
-                    deliveryPartner: 'Delhivery',
-                    warehouse: formData.warehouse as string,
-                    items: formData.invoice_items.map((it, idx) => ({ lineIndex: idx, quantity: it.quantity })),
-                    isSelfShipment: false,
-                    shipping_mode: formData.shipping_mode || 'Surface',
-                    payment_mode: formData.payment_mode || 'Prepaid',
-                    fragile: formData.fragile || false,
-                    weight: formData.weight || 200,
-                    length: formData.length || 10,
-                    width: formData.width || 10,
-                    height: formData.height || 10,
-                    products_desc: formData.products_desc || '',
-                    cod_amount: undefined,
-                    provider: '',
-                    awb: '',
-                },
-            ]
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const { costs: shippingCosts, tats: expectedTats, loading: loadingPreview } = useShipmentEstimates({
+    plannedShipments: plannedShipments.map((s) => ({
+      id: s.id,
+      shipping_mode: s.shipping_mode,
+      weight: s.weight,
+      payment_mode: s.payment_mode,
+      warehouse: s.warehouse,
+    })),
+    destPincode: formData.pincode,
+  });
+
+  const { updateOrder } = useOrderUpdate();
+
+  const getAllocatedQtyForLine = useCallback(
+    (lineIndex: number) =>
+      plannedShipments.reduce((sum, sh) => {
+        const found = sh.items.find((it) => it.lineIndex === lineIndex);
+        return sum + (found?.quantity || 0);
+      }, 0),
+    [plannedShipments]
+  );
+
+  const updateShipment = (id: string, updates: Partial<PlannedShipment>) =>
+    setPlannedShipments((prev) => applyShipmentUpdate(prev, id, updates));
+
+  const updateShipmentItemQty = (shipmentId: string, lineIndex: number, quantity: number) =>
+    setPlannedShipments((prev) =>
+      prev.map((sh) => {
+        if (sh.id !== shipmentId) return sh;
+        const items = [...sh.items];
+        const idx = items.findIndex((it) => it.lineIndex === lineIndex);
+        if (idx >= 0) items[idx] = { ...items[idx], quantity };
+        else items.push({ lineIndex, quantity });
+        return { ...sh, items };
+      })
     );
 
-    const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
-    const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
-    const shippingCharge = formData.include_shipping ? 100 : 0;
-    const codCharge = formData.include_cod ? 50 : 0;
+  const addShipment = (kind: 'DELHIVERY' | 'SELF' | 'DTDC' | 'SHADOWFAX') =>
+    setPlannedShipments((prev) => [
+      ...prev,
+      {
+        ...defaultShipment(formData),
+        id: `shipment-${prev.length + 1}`,
+        deliveryPartner: kind === 'SELF' ? 'SELF' : kind === 'DTDC' ? 'DTDC' : kind === 'SHADOWFAX' ? 'Shadowfax' : 'Delhivery',
+        items: formData.invoice_items.map((_, idx) => ({ lineIndex: idx, quantity: 0 })),
+        isSelfShipment: kind === 'SELF',
+      },
+    ]);
 
-    const finalItemsPrice = subtotal + totalTax;
-    const discountInput = Number(formData.discount) || 0;
-    const discountFormat = formData.discount_format_type || 'fixed';
-    const appliedDiscountAmount = discountFormat === 'percentage'
-        ? (finalItemsPrice * discountInput) / 100
-        : discountInput;
+  const removeShipment = (id: string) =>
+    setPlannedShipments((prev) => prev.filter((s) => s.id !== id));
 
-    const grandTotal = finalItemsPrice - appliedDiscountAmount + shippingCharge + codCharge;
+  const saveWaybillToHistory = (waybill: string, orderId: string, consignee: string) => {
+    try {
+      const history = JSON.parse(localStorage.getItem('delhivery_recent_orders') || '[]');
+      localStorage.setItem(
+        'delhivery_recent_orders',
+        JSON.stringify([{ waybill, orderId, consignee, date: new Date().toISOString() }, ...history].slice(0, 5))
+      );
+    } catch { /* ignore */ }
+  };
 
-    const anyDescriptions = useMemo(
-        () => formData.invoice_items.some((it) => (it.description || '').trim().length > 0),
-        [formData.invoice_items]
-    );
+  const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
+  const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
+  const finalItemsPrice = subtotal + totalTax;
+  const appliedDiscount = (Number(formData.discount) || 0) * (formData.discount_format_type === 'percentage' ? finalItemsPrice / 100 : 1);
+  const grandTotal = finalItemsPrice - appliedDiscount + (formData.include_shipping ? 100 : 0) + (formData.include_cod ? 50 : 0);
 
-    // Helper: compute total already allocated quantity for a given line across all planned shipments
-    const getAllocatedQtyForLine = (lineIndex: number): number => {
-        return plannedShipments.reduce((sum, sh) => {
-            const found = sh.items.find((it) => it.lineIndex === lineIndex);
-            return sum + (found?.quantity || 0);
-        }, 0);
-    };
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setErrorMsg('');
 
-    const updateShipmentItemQty = (shipmentId: string, lineIndex: number, quantity: number) => {
-        setPlannedShipments((prev) =>
-            prev.map((sh) => {
-                if (sh.id !== shipmentId) return sh;
-                const nextItems = [...sh.items];
-                const existingIdx = nextItems.findIndex((it) => it.lineIndex === lineIndex);
-                if (existingIdx >= 0) {
-                    nextItems[existingIdx] = { ...nextItems[existingIdx], quantity };
-                } else {
-                    nextItems.push({ lineIndex, quantity });
-                }
-                return { ...sh, items: nextItems };
-            })
-        );
-    };
+    try {
+      if (!formData.orderId) throw new Error('Missing Order ID');
 
-    const addShipment = (kind: 'DELHIVERY' | 'SELF' | 'DTDC') => {
-        setPlannedShipments((prev) => {
-            const nextId = `shipment-${prev.length + 1}`;
-            return [
-                ...prev,
-                {
-                    id: nextId,
-                    vendor: formData.warehouse as string,
-                    deliveryPartner: kind === 'SELF' ? 'SELF' : kind === 'DTDC' ? 'DTDC' : 'Delhivery',
-                    warehouse: formData.warehouse as string,
-                    items: formData.invoice_items.map((it, idx) => ({ lineIndex: idx, quantity: 0 })),
-                    isSelfShipment: kind === 'SELF',
-                    shipping_mode: formData.shipping_mode || 'Surface',
-                    payment_mode: formData.payment_mode || 'Prepaid',
-                    fragile: formData.fragile || false,
-                    weight: formData.weight || 200,
-                    length: formData.length || 10,
-                    width: formData.width || 10,
-                    height: formData.height || 10,
-                    products_desc: formData.products_desc || '',
-                    cod_amount: undefined,
-                    provider: '',
-                    awb: '',
-                },
-            ];
+      formData.invoice_items.forEach((item, idx) => {
+        const allocated = getAllocatedQtyForLine(idx);
+        if (allocated > item.quantity)
+          throw new Error(`Item ${idx + 1} allocation exceeds quantity (${allocated}/${item.quantity}).`);
+      });
+
+      plannedShipments.forEach((sh, i) => {
+        if (isSelfShipment(sh)) {
+          if (!sh.provider) throw new Error(`Shipment ${i + 1}: Shipping Provider is required`);
+          if (!sh.awb?.trim()) throw new Error(`Shipment ${i + 1}: AWB is required`);
+          return;
+        }
+        if (sh.deliveryPartner === 'DTDC' || sh.deliveryPartner === 'Shadowfax') return;
+        const eff = sh.items.filter((it) => it.quantity > 0);
+        if (eff.length === 0) return;
+        if (!sh.weight || sh.weight <= 0) throw new Error(`Shipment ${i + 1}: Weight must be > 0`);
+        if (!sh.products_desc?.trim()) throw new Error(`Shipment ${i + 1}: Description is required`);
+      });
+
+      interface CreatedShipment {
+        vendor: string; deliveryPartner?: string; waybill?: string; shippingCost: number;
+        warehouse: string; paymentMode?: string; codAmount?: number;
+        items: { lineIndex: number; quantity: number }[];
+      }
+
+      const createdShipmentsForOrder: CreatedShipment[] = [];
+      const allWaybills: string[] = [];
+
+      // Process Delhivery shipments
+      const delhiveryShipments = plannedShipments
+        .map((sh, i) => ({ sh, i }))
+        .filter(({ sh }) => !isSelfShipment(sh) && sh.deliveryPartner !== 'DTDC' && sh.deliveryPartner !== 'Shadowfax');
+
+      for (const { sh, i } of delhiveryShipments) {
+        const eff = sh.items.filter((it) => it.quantity > 0);
+        if (eff.length === 0) continue;
+
+        let amount = 0;
+        eff.forEach((it) => {
+          const base = formData.invoice_items[it.lineIndex];
+          const pu = ((base.item_total || 0) + (base.tax_amount || 0)) / (base.quantity || 1);
+          amount += pu * it.quantity;
         });
-    };
 
-    const removeShipment = (shipmentId: string) => {
-        setPlannedShipments((prev) => prev.filter((s) => s.id !== shipmentId));
-    };
+        const phone = (formData.phone || '').replace(/\D/g, '').slice(-10);
+        const payload = {
+          name: formData.customer_name,
+          add: formData.phone ? `${formData.address}, Ph: ${formData.country_code} ${formData.phone}` : formData.address,
+          pin: parseInt(formData.pincode, 10),
+          city: formData.city, state: formData.state, country: formData.country,
+          phone,
+          order: `${formData.orderId}-PKG${i + 1}`,
+          payment_mode: sh.payment_mode,
+          total_amount: Number((amount || grandTotal).toFixed(2)),
+          cod_amount: sh.payment_mode === 'COD' ? Number(sh.cod_amount ?? Number((amount || grandTotal).toFixed(2))) : 0,
+          products_desc: sh.products_desc || 'Spiritual Items',
+          quantity: '1',
+          pickup_location: sh.warehouse || (formData.warehouse as string),
+          shipment_length: sh.length || 0,
+          shipment_width: sh.width || 0,
+          shipment_height: sh.height || 0,
+          fragile_shipment: sh.fragile ? 'true' : 'false',
+          shipping_mode: sh.shipping_mode,
+        };
 
-    useEffect(() => {
-        async function fetchPreviewData() {
-            setLoadingPreview(true);
-            setErrorMsg('');
-            try {
-                const newCosts: Record<string, number> = {};
-                const newTats: Record<string, string> = {};
+        const res = await delhiveryService.createShipment(payload);
+        const result = res.results?.[0];
+        const data = result?.data as Record<string, unknown> | undefined;
 
-                // Fetch shipping cost & TAT per shipment
-                await Promise.all(plannedShipments.map(async (sh) => {
-                    try {
-                        const originPin = WAREHOUSE_DETAILS[sh.warehouse as DelhiveryWarehouse]?.pincode || '302001';
-
-                        // 1. Fetch Shipping Cost for this shipment
-                        const costParams = new URLSearchParams({
-                            md: sh.shipping_mode === 'Express' ? 'E' : 'S',
-                            cgm: String(sh.weight || formData.weight),
-                            o_pin: originPin,
-                            d_pin: formData.pincode,
-                            ss: 'Delivered',
-                            pt: (sh.payment_mode || formData.payment_mode) === 'Prepaid' ? 'Pre-paid' : 'COD'
-                        });
-
-                        const costRes = await fetch(`/api/delhivery/shipping-cost?${costParams.toString()}`);
-                        if (costRes.ok) {
-                            const costData = await costRes.json();
-                            if (costData && costData.length > 0 && costData[0].total_amount) {
-                                newCosts[sh.id] = costData[0].total_amount;
-                            }
-                        }
-
-                        // 2. Fetch Expected TAT for this shipment
-                        const tatParams = new URLSearchParams({
-                            origin_pin: originPin,
-                            destination_pin: formData.pincode,
-                            mot: sh.shipping_mode === 'Express' ? 'E' : 'S'
-                        });
-
-                        const tatRes = await fetch(`/api/delhivery/tat?${tatParams.toString()}`);
-                        if (tatRes.ok) {
-                            const tatData = await tatRes.json();
-                            if (tatData.data && typeof tatData.data.tat === 'number') {
-                                const expectedDate = new Date();
-                                expectedDate.setDate(expectedDate.getDate() + tatData.data.tat);
-                                newTats[sh.id] = expectedDate.toISOString();
-                            } else if (tatData.expected_delivery_date) {
-                                newTats[sh.id] = tatData.expected_delivery_date;
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Failed to fetch preview for shipment ${sh.id}`, err);
-                    }
-                }));
-
-                setShippingCosts(newCosts);
-                setExpectedTats(newTats);
-            } catch (err) {
-                console.error('Failed to fetch preview data', err);
-            } finally {
-                setLoadingPreview(false);
-            }
+        if (!result || result.status !== 200 || !data?.success) {
+          const pkgs = data?.packages as Record<string, unknown>[] | undefined;
+          const err = (data?.rmk as string) || (data?.error as string) || (pkgs?.[0]?.remarks as string) || 'Failed';
+          throw new Error(`Shipment ${i + 1} Failed: ${err}`);
         }
 
-        fetchPreviewData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.pincode, JSON.stringify(plannedShipments.map(s => ({ id: s.id, sm: s.shipping_mode, w: s.weight, pm: s.payment_mode })))]);
-
-    const saveWaybillToHistory = (waybill: string, orderId: string, consignee: string) => {
-        try {
-            const historyStr = localStorage.getItem('delhivery_recent_orders');
-            const history = historyStr ? JSON.parse(historyStr) : [];
-
-            const newOrder = {
-                waybill,
-                orderId,
-                consignee,
-                date: new Date().toISOString()
-            };
-
-            const newHistory = [newOrder, ...history].slice(0, 5);
-            localStorage.setItem('delhivery_recent_orders', JSON.stringify(newHistory));
-        } catch (e) {
-            console.error('Failed to save to localStorage', e);
+        const pkgs = data?.packages as Record<string, unknown>[] | undefined;
+        const wb = pkgs?.[0]?.waybill as string | undefined;
+        if (wb) {
+          allWaybills.push(wb);
+          saveWaybillToHistory(wb, formData.orderId ?? '', formData.customer_name ?? '');
         }
-    };
 
-    const handleConfirm = async () => {
-        setSubmitting(true);
-        setErrorMsg('');
+        createdShipmentsForOrder.push({
+          vendor: sh.warehouse || sh.vendor || 'DELHIVERY',
+          deliveryPartner: 'Delhivery',
+          waybill: wb,
+          shippingCost: shippingCosts[sh.id] || 0,
+          warehouse: sh.warehouse || (formData.warehouse as string),
+          paymentMode: sh.payment_mode || 'Prepaid',
+          codAmount: payload.cod_amount || undefined,
+          items: eff,
+        });
+      }
 
-        try {
-            if (!formData.orderId) {
-                throw new Error("Missing Order ID");
-            }
-
-            // Validate allocations: for each line item, allocated qty cannot exceed its quantity
-            const allocationErrors: string[] = [];
-            formData.invoice_items.forEach((item, idx) => {
-                const allocated = getAllocatedQtyForLine(idx);
-                if (allocated > item.quantity) {
-                    allocationErrors.push(`Item ${idx + 1} allocation exceeds quantity (${allocated}/${item.quantity}).`);
-                }
-            });
-
-            if (allocationErrors.length > 0) {
-                throw new Error(allocationErrors[0]);
-            }
-
-            // Validate required shipping fields per Delhivery shipment
-            for (let i = 0; i < plannedShipments.length; i++) {
-                const sh = plannedShipments[i];
-                if (sh.isSelfShipment || sh.deliveryPartner === 'SELF') {
-                    if (!sh.provider) {
-                        throw new Error(`Shipment ${i + 1}: Shipping Provider is required for self-shipped items`);
-                    }
-                    if (!sh.awb || sh.awb.trim().length === 0) {
-                        throw new Error(`Shipment ${i + 1}: AWB is required for self-shipped items`);
-                    }
-                    continue;
-                }
-                if (sh.deliveryPartner === 'DTDC') continue;
-                const effectiveItems = sh.items.filter((it) => it.quantity > 0);
-                if (effectiveItems.length === 0) continue;
-                if (!sh.weight || sh.weight <= 0) {
-                    throw new Error(`Shipment ${i + 1}: Weight must be greater than 0 grams`);
-                }
-                if (!sh.products_desc || sh.products_desc.trim().length === 0) {
-                    throw new Error(`Shipment ${i + 1}: Package contents description is required`);
-                }
-            }
-
-            const createdShipmentsForOrder: {
-                vendor: string;
-                deliveryPartner?: string;
-                waybill?: string;
-                shippingCost: number;
-                warehouse: string;
-                paymentMode?: string;
-                codAmount?: number;
-                items: { lineIndex: number; quantity: number }[];
-            }[] = [];
-
-            const allWaybills: string[] = [];
-
-            // Prepare all shipment payloads for backend
-            // Prepare and send shipments one by one (Only Delhivery)
-            const delhiveryShipments = plannedShipments
-                .map((sh, index) => ({ sh, index }))
-                .filter(({ sh }) => !(sh.isSelfShipment || sh.deliveryPartner === 'SELF' || sh.deliveryPartner === 'DTDC'));
-
-            for (const { sh, index } of delhiveryShipments) {
-                const effectiveItems = sh.items.filter((it) => it.quantity > 0);
-                if (effectiveItems.length === 0) continue;
-
-                let shipmentAmount = 0;
-                effectiveItems.forEach((it) => {
-                    const base = formData.invoice_items[it.lineIndex];
-                    const perUnitTotal = ((base.item_total || 0) + (base.tax_amount || 0)) / (base.quantity || 1);
-                    shipmentAmount += perUnitTotal * it.quantity;
-                });
-                const resolvedFinalPrice = shipmentAmount || grandTotal;
-
-                // Sanitize phone number (last 10 digits)
-                const sanitizedPhone = (formData.phone || '').replace(/\D/g, '').slice(-10);
-
-                // Map and clean payload for Delhivery
-                const payload = {
-                    name: formData.customer_name,
-                    add: formData.phone ? `${formData.address}, Ph: ${formData.country_code} ${formData.phone}` : formData.address,
-                    pin: parseInt(formData.pincode, 10),
-                    city: formData.city,
-                    state: formData.state,
-                    country: formData.country,
-                    phone: sanitizedPhone,
-
-                    // ✅ Append the index to guarantee a unique order ID for each package
-                    order: `${formData.orderId}-PKG${index + 1}`,
-
-                    payment_mode: sh.payment_mode,
-                    total_amount: Number(resolvedFinalPrice.toFixed(2)),
-                    cod_amount: sh.payment_mode === 'COD' 
-                        ? (sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : Number(resolvedFinalPrice.toFixed(2))) 
-                        : 0,
-                    products_desc: sh.products_desc || "Spiritual Items",
-                    quantity: "1",
-                    pickup_location: sh.warehouse || (formData.warehouse as string),
-
-                    // Specific mapping for Delhivery dimensions and flags
-                    shipment_length: sh.length || 0,
-                    shipment_width: sh.width || 0,
-                    shipment_height: sh.height || 0,
-                    fragile_shipment: sh.fragile ? "true" : "false",
-                    shipping_mode: sh.shipping_mode
-                };
-
-
-                // Send single shipment
-                const shipmentRes = await fetch('/api/delhivery/shipment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                const rawResult = await shipmentRes.json();
-
-                // The API now returns { results: [{ status, data }], success: boolean }
-                // Since we are sending one by one in this loop, we look at results[0]
-                const result = rawResult.results?.[0];
-
-                // Handle single result
-                if (!result || result.status !== 200 || !result.data || !result.data.success) {
-                    let errorStr = 'Failed to create Delhivery shipment.';
-                    if (result?.data?.rmk) {
-                        errorStr = result.data.rmk;
-                    } else if (typeof result?.data?.error === 'string') {
-                        errorStr = result.data.error;
-                    } else if (typeof result?.error === 'string') {
-                        errorStr = result.error;
-                    } else if (result?.data?.packages?.[0]?.remarks) {
-                        errorStr = result.data.packages[0].remarks;
-                    }
-                    throw new Error(`Shipment ${index + 1} Failed: ${errorStr}`);
-                }
-
-                const generatedWaybill = result.data?.packages?.[0]?.waybill;
-
-                if (generatedWaybill) {
-                    allWaybills.push(generatedWaybill);
-                    saveWaybillToHistory(generatedWaybill, formData.orderId ?? '', formData.customer_name ?? '');
-                }
-
-                createdShipmentsForOrder.push({
-                    vendor: sh.warehouse || sh.vendor || 'DELHIVERY',
-                    deliveryPartner: sh.deliveryPartner || 'Delhivery',
-                    waybill: generatedWaybill,
-                    shippingCost: shippingCosts[sh.id] || 0,
-                    warehouse: sh.warehouse || (formData.warehouse as string),
-                    paymentMode: sh.payment_mode || 'Prepaid',
-                    codAmount: payload.cod_amount || undefined,
-                    items: effectiveItems,
-                });
-            }
-
-            // Process DTDC shipments
-            const dtdcShipments = plannedShipments.filter((sh) => sh.deliveryPartner === 'DTDC');
-            for (const sh of dtdcShipments) {
-                const effectiveItems = sh.items.filter((it) => it.quantity > 0);
-                if (effectiveItems.length === 0) continue;
-                createdShipmentsForOrder.push({
-                    vendor: sh.warehouse || sh.vendor,
-                    deliveryPartner: 'DTDC',
-                    waybill: sh.awb || undefined,
-                    shippingCost: 0,
-                    warehouse: sh.warehouse || (formData.warehouse as string),
-                    paymentMode: sh.payment_mode || 'Prepaid',
-                    codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
-                    items: effectiveItems,
-                });
-            }
-
-
-            // Add self shipments
-            plannedShipments.forEach((sh) => {
-                if (sh.isSelfShipment || sh.deliveryPartner === 'SELF') {
-                    const effectiveItems = sh.items.filter((it) => it.quantity > 0);
-                    if (effectiveItems.length === 0) return;
-                    createdShipmentsForOrder.push({
-                        vendor: 'SELF',
-                        deliveryPartner: sh.provider || 'SELF',
-                        waybill: sh.awb,
-                        shippingCost: 0,
-                        warehouse: sh.warehouse || (formData.warehouse as string),
-                        paymentMode: sh.payment_mode || 'Prepaid',
-                        items: effectiveItems,
-                    });
-                }
-            });
-
-            if (createdShipmentsForOrder.length === 0) {
-                throw new Error('No shipment rows defined. Allocate at least one item to a shipment or mark as self shipped.');
-            }
-
-            // Compute aggregate shipped quantities to decide status
-            const shippedQtyPerLine: number[] = formData.invoice_items.map(() => 0);
-            createdShipmentsForOrder.forEach((sh) => {
-                sh.items.forEach((it) => {
-                    shippedQtyPerLine[it.lineIndex] += it.quantity;
-                });
-            });
-
-            let allShipped = true;
-            let anyShipped = false;
-            formData.invoice_items.forEach((item, idx) => {
-                const shipped = shippedQtyPerLine[idx];
-                if (shipped > 0) anyShipped = true;
-                if (shipped < item.quantity) allShipped = false;
-            });
-
-            let nextStatus = allShipped ? 'SHIPPED' : anyShipped ? 'PARTIALLY_SHIPPED' : 'PENDING_SHIPPING';
-            const anySelf = plannedShipments.some((s) => s.isSelfShipment || s.deliveryPartner === 'SELF');
-            const anyDTDC = createdShipmentsForOrder.some((s) => s.deliveryPartner === 'DTDC');
-
-            if (anyDTDC) {
-                nextStatus = 'DTDC_SCHEDULED';
-            }
-
-            // Persist shipments & status to the order
-            await fetch(`/api/orders/${formData.orderId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: nextStatus,
-                    selfShipped: anySelf,
-                    shipmentsAppend: createdShipmentsForOrder,
-                    waybill: allWaybills[0] ?? null,
-                    waybills: allWaybills,
-                    shippingCost: createdShipmentsForOrder.reduce((sum, s) => sum + (s.shippingCost || 0), 0),
-                }),
-            });
-
-            updateForm({
-                waybill: allWaybills[0],
-                waybills: allWaybills,
-                plannedShipments,
-            });
-
-            onNext();
-
-        } catch (err) {
-            setErrorMsg(err instanceof Error ? err.message : 'Unknown error occurred');
-            console.error(err);
-        } finally {
-            setSubmitting(false);
+      // Process manual partner shipments (DTDC, Shadowfax)
+      for (const partner of ['DTDC', 'Shadowfax'] as const) {
+        for (const sh of plannedShipments.filter((s) => s.deliveryPartner === partner)) {
+          const eff = sh.items.filter((it) => it.quantity > 0);
+          if (eff.length === 0) continue;
+          createdShipmentsForOrder.push({
+            vendor: sh.warehouse || sh.vendor,
+            deliveryPartner: partner,
+            waybill: sh.awb || undefined,
+            shippingCost: 0,
+            warehouse: sh.warehouse || (formData.warehouse as string),
+            paymentMode: sh.payment_mode || 'Prepaid',
+            codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
+            items: eff,
+          });
         }
-    };
+      }
 
-    return (
-        <div className="form-section animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="section-title mb-0">
-                    <span className="section-icon">🔍</span> Confirm Shipping
-                </h3>
-                <button className="btn btn-secondary py-1.5 px-4 text-sm font-semibold" onClick={onPrev} disabled={submitting}>
-                    🡨 Back
-                </button>
-            </div>
+      // Process self shipments
+      plannedShipments.forEach((sh) => {
+        if (!isSelfShipment(sh)) return;
+        const eff = sh.items.filter((it) => it.quantity > 0);
+        if (eff.length === 0) return;
+        createdShipmentsForOrder.push({
+          vendor: 'SELF',
+          deliveryPartner: sh.provider || 'SELF',
+          waybill: sh.awb,
+          shippingCost: 0,
+          warehouse: sh.warehouse || (formData.warehouse as string),
+          paymentMode: sh.payment_mode || 'Prepaid',
+          items: eff,
+        });
+      });
 
-            {/* Order Identity info */}
-            <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm text-sm text-gray-700 dark:text-gray-300">
-                <div className="flex flex-wrap gap-x-8 gap-y-2">
-                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Order ID:</span> {formData.orderId}</div>
-                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Customer Name:</span> {formData.customer_name}</div>
-                    <div><span className="font-semibold text-gray-500 dark:text-gray-400">Payment Mode:</span> {formData.payment_mode || formData.plannedShipments?.[0]?.payment_mode || 'Prepaid'}</div>
-                </div>
-            </div>
+      if (createdShipmentsForOrder.length === 0)
+        throw new Error('No shipment rows defined.');
 
-            {errorMsg && (
-                <div className="form-error">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    {errorMsg}
-                </div>
-            )}
+      // Determine status
+      const shippedPerLine = formData.invoice_items.map(() => 0);
+      createdShipmentsForOrder.forEach((s) => s.items.forEach((it) => { shippedPerLine[it.lineIndex] += it.quantity; }));
 
-            {/* Items list (with optional descriptions) */}
-            <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
-                <h4 className="text-gray-900 dark:text-accent font-bold mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
-                    📦 Items in this Order
-                </h4>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#1c1c28] uppercase border-b border-gray-100 dark:border-[#2a2a38]">
-                            <tr>
-                                <th className="px-2 py-2 rounded-l-lg font-semibold">Item</th>
-                                {anyDescriptions && <th className="px-2 py-2 font-semibold">Description</th>}
-                                <th className="px-2 py-2 font-semibold text-center">Price</th>
-                                <th className="px-2 py-2 font-semibold text-center">Qty</th>
-                                <th className="px-2 py-2 font-semibold text-center">Total</th>
-                                <th className="px-2 py-2 rounded-r-lg font-semibold text-center">Allocated</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a38]">
-                            {formData.invoice_items.map((it, idx) => {
-                                // Fallback calculation: (item_total + tax_amount) / quantity
-                                const perUnitTotal = it.final_price ?? (((it.item_total || 0) + (it.tax_amount || 0)) / (it.quantity || 1));
-                                return (
-                                    <tr key={idx} className="text-gray-700 dark:text-gray-300">
-                                        <td className="px-2 py-2.5 font-medium">{it.name}</td>
-                                        {anyDescriptions && (
-                                            <td className="px-2 py-2.5 text-xs text-gray-500 dark:text-gray-400">
-                                                {(it.description || '').trim() ? it.description : <span className="italic text-gray-400">—</span>}
-                                            </td>
-                                        )}
-                                        <td className="px-2 py-2.5 text-center">₹{perUnitTotal.toFixed(2)}</td>
-                                        <td className="px-2 py-2.5 text-center">{it.quantity}</td>
-                                        <td className="px-2 py-2.5 text-center font-medium">₹{(perUnitTotal * it.quantity).toFixed(2)}</td>
-                                        <td className="px-2 py-2.5 text-center">
-                                            <span className={getAllocatedQtyForLine(idx) === it.quantity ? 'text-green-500' : 'text-orange-400'}>
-                                                {getAllocatedQtyForLine(idx)}/{it.quantity}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+      let allDone = true;
+      let anyDone = false;
+      formData.invoice_items.forEach((item, idx) => {
+        const q = shippedPerLine[idx];
+        if (q > 0) anyDone = true;
+        if (q < item.quantity) allDone = false;
+      });
 
-            {/* Shipment planner UI */}
-            <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-4 mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3">
-                    <h4 className="text-gray-900 dark:text-accent font-bold flex items-center gap-2 text-lg mb-0">
-                        🧩 Split Shipments
-                    </h4>
-                    <div className="flex gap-2">
-                        <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('DELHIVERY')}>
-                            + Delhivery Shipment
-                        </button>
-                        <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('DTDC')}>
-                            + DTDC Shipment
-                        </button>
-                        <button type="button" className="btn btn-secondary py-2 px-3 text-sm" onClick={() => addShipment('SELF')}>
-                            + Self Shipped
-                        </button>
-                    </div>
-                </div>
+      let status = allDone ? 'SHIPPED' : anyDone ? 'PARTIALLY_SHIPPED' : 'PENDING_SHIPPING';
+      if (createdShipmentsForOrder.some((s) => s.deliveryPartner === 'Shadowfax')) status = 'SHADOWFAX_SCHEDULED';
+      else if (createdShipmentsForOrder.some((s) => s.deliveryPartner === 'DTDC')) status = 'DTDC_SCHEDULED';
 
-                <div className="space-y-4">
-                    {plannedShipments.map((sh, idx) => (
-                        <div key={sh.id} className="border border-gray-100 dark:border-[#2a2a38] rounded-xl p-4 bg-gray-50 dark:bg-[#1c1c28]">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">
-                                        Shipment {idx + 1}
-                                    </span>
-                                    <span className={sh.isSelfShipment || sh.deliveryPartner === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
-                                        {(sh.isSelfShipment || sh.deliveryPartner === 'SELF') ? 'SELF SHIPPED' : sh.deliveryPartner === 'DTDC' ? 'DTDC' : 'DELHIVERY'}
-                                    </span>
-                                </div>
-                                {plannedShipments.length > 1 && (
-                                    <button type="button" className="text-xs text-red-400 hover:underline" onClick={() => removeShipment(sh.id)}>
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
+      await updateOrder(formData.orderId, {
+        status,
+        selfShipped: plannedShipments.some((s) => isSelfShipment(s)),
+        shipmentsAppend: createdShipmentsForOrder,
+        waybill: allWaybills[0] ?? null,
+        waybills: allWaybills,
+        shippingCost: createdShipmentsForOrder.reduce((sum, s) => sum + (s.shippingCost || 0), 0),
+      });
 
-                            <div className="form-grid-2">
-                                {!sh.isSelfShipment && sh.deliveryPartner !== 'SELF' && (
-                                    <div className="form-group">
-                                        <label>Delivery Partner</label>
-                                        <div className="flex gap-4 mt-1">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    checked={sh.deliveryPartner === 'Delhivery'}
-                                                    onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, deliveryPartner: 'Delhivery' } : s))}
-                                                    className="accent-accent"
-                                                />
-                                                <span className="text-sm text-gray-700 dark:text-gray-200">Delhivery</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    checked={sh.deliveryPartner === 'DTDC'}
-                                                    onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, deliveryPartner: 'DTDC' } : s))}
-                                                    className="accent-accent"
-                                                />
-                                                <span className="text-sm text-gray-700 dark:text-gray-200">DTDC</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                )}
-                                {(sh.isSelfShipment || sh.deliveryPartner === 'SELF') && (
-                                    <>
-                                        <div className="form-group">
-                                            <label>Shipping Provider *</label>
-                                            <select
-                                                className="form-input"
-                                                value={sh.provider || ''}
-                                                onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, provider: e.target.value } : s))}
-                                            >
-                                                <option value="">Select Provider</option>
-                                                {SHIPPING_PROVIDERS.map((p) => (
-                                                    <option key={p} value={p}>{p}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>AWB Number *</label>
-                                            <input
-                                                className="form-input"
-                                                value={sh.awb || ''}
-                                                onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, awb: e.target.value } : s))}
-                                                placeholder="Enter AWB"
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                                {sh.deliveryPartner === 'DTDC' && (
-                                    <div className="form-group">
-                                        <label>AWB Number (Optional)</label>
-                                        <input
-                                            className="form-input"
-                                            value={sh.awb || ''}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, awb: e.target.value } : s))}
-                                            placeholder="Enter DTDC AWB"
-                                        />
-                                    </div>
-                                )}
-                                <div className="form-group">
-                                    <label>Vendor / Origin</label>
-                                    <select
-                                        className="form-input"
-                                        value={sh.warehouse}
-                                        onChange={(e) => {
-                                            const w = e.target.value;
-                                            setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, warehouse: w, vendor: w } : s));
-                                        }}
-                                    >
-                                        {DELHIIVERY_WAREHOUSES.map((w: string) => (
-                                            <option key={w} value={w}>{w}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Shipping Mode</label>
-                                    <div className="flex gap-4 mt-1">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={sh.shipping_mode === 'Surface'}
-                                                onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, shipping_mode: 'Surface' } : s))}
-                                                className="accent-accent"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-200">Surface</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={sh.shipping_mode === 'Express'}
-                                                onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, shipping_mode: 'Express' } : s))}
-                                                className="accent-accent"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-200">Express</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>Payment Mode *</label>
-                                    <div className="flex gap-4 mt-1">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={sh.payment_mode === 'Prepaid'}
-                                                onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, payment_mode: 'Prepaid' } : s))}
-                                                className="accent-accent"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-200">Prepaid</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={sh.payment_mode === 'COD'}
-                                                onChange={() => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, payment_mode: 'COD' } : s))}
-                                                className="accent-accent"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-200">Cash on Delivery (COD)</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                {sh.payment_mode === 'COD' && (
-                                    <div className="form-group">
-                                        <label>Custom COD Amount (Optional)</label>
-                                        <input
-                                            className="form-input no-spinner"
-                                            type="number"
-                                            value={sh.cod_amount ?? ''}
-                                            inputMode="decimal"
-                                            onWheel={(e) => e.currentTarget.blur()}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, cod_amount: e.target.value === '' ? '' : Number(e.target.value) } : s))}
-                                            placeholder="Leave empty for auto-calculate"
-                                        />
-                                    </div>
-                                )}
-                                <div className="form-group">
-                                    <label>Fragile Shipment?</label>
-                                    <div className="flex items-center gap-2 h-10">
-                                        <input
-                                            type="checkbox"
-                                            checked={!!sh.fragile}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, fragile: e.target.checked } : s))}
-                                            className="w-4 h-4 accent-accent rounded"
-                                        />
-                                        <span className="text-sm text-gray-600 dark:text-gray-300">Yes, handle with care</span>
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>Chargeable Weight (Grams) *</label>
-                                    <input
-                                        className="form-input"
-                                        type="number"
-                                        value={sh.weight || ''}
-                                        onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, weight: Number(e.target.value) } : s))}
-                                        placeholder="e.g. 500"
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Dimensions (cm) - Optional</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            className="form-input flex-1"
-                                            type="number"
-                                            placeholder="L"
-                                            value={sh.length || ''}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, length: Number(e.target.value) } : s))}
-                                        />
-                                        <input
-                                            className="form-input flex-1"
-                                            type="number"
-                                            placeholder="W"
-                                            value={sh.width || ''}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, width: Number(e.target.value) } : s))}
-                                        />
-                                        <input
-                                            className="form-input flex-1"
-                                            type="number"
-                                            placeholder="H"
-                                            value={sh.height || ''}
-                                            onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, height: Number(e.target.value) } : s))}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-group col-span-1 md:col-span-2">
-                                    <label>Package Contents Description *</label>
-                                    <input
-                                        className="form-input"
-                                        value={sh.products_desc || ''}
-                                        onChange={(e) => setPlannedShipments((prev) => prev.map((s) => s.id === sh.id ? { ...s, products_desc: e.target.value } : s))}
-                                        placeholder="e.g. T-shirts, Books"
-                                    />
-                                </div>
-                            </div>
+      updateForm({ waybill: allWaybills[0], waybills: allWaybills, plannedShipments });
+      onNext();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-                            <div className="mt-3 overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-[#2a2a38]">
-                                        <tr>
-                                            <th className="px-2 py-2 font-semibold">Item</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Price</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Order Qty</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Shipment Qty</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Shipment Total</th>
-                                            <th className="px-2 py-2 font-semibold text-center">Remaining Qty</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a38]">
-                                        {formData.invoice_items.map((it, lineIndex) => {
-                                            const thisQty = sh.items.find((x) => x.lineIndex === lineIndex)?.quantity || 0;
-                                            const allocatedAcrossAll = getAllocatedQtyForLine(lineIndex);
-                                            const remaining = Math.max(0, it.quantity - allocatedAcrossAll + thisQty);
-                                            // Fallback calculation: (item_total + tax_amount) / quantity
-                                            const perUnitTotal = it.final_price ?? (((it.item_total || 0) + (it.tax_amount || 0)) / (it.quantity || 1));
-                                            return (
-                                                <tr key={lineIndex} className="text-gray-700 dark:text-gray-300">
-                                                    <td className="px-2 py-2.5 font-medium">{it.name}</td>
-                                                    <td className="px-2 py-2.5 text-center">₹{perUnitTotal.toFixed(2)}</td>
-                                                    <td className="px-2 py-2.5 text-center">{it.quantity}</td>
-                                                    <td className="px-2 py-2.5 text-center">
-                                                        <input
-                                                            type="number"
-                                                            className="form-input w-24 text-center py-1 mx-auto block"
-                                                            min={0}
-                                                            max={remaining}
-                                                            value={thisQty}
-                                                            onChange={(e) => {
-                                                                const next = Math.max(0, Math.min(remaining, Number(e.target.value) || 0));
-                                                                updateShipmentItemQty(sh.id, lineIndex, next);
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td className="px-2 py-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">
-                                                        ₹{(perUnitTotal * thisQty).toFixed(2)}
-                                                    </td>
-                                                    <td className="px-2 py-2.5 text-center text-xs text-gray-500 dark:text-gray-400">
-                                                        {remaining - thisQty}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr className="bg-gray-50 dark:bg-[#1c1c28] border-t border-gray-200 dark:border-[#2a2a38] font-semibold text-gray-900 dark:text-gray-100">
-                                            <td colSpan={4} className="px-2 py-3 text-right">Shipment Total Value:</td>
-                                            <td className="px-2 py-3 text-center text-emerald-600 dark:text-emerald-400">
-                                                ₹{formData.invoice_items.reduce((acc, it, lineIndex) => {
-                                                    const thisQty = sh.items.find((x) => x.lineIndex === lineIndex)?.quantity || 0;
-                                                    const perUnitTotal = it.final_price ?? (((it.item_total || 0) + (it.tax_amount || 0)) / (it.quantity || 1));
-                                                    return acc + (perUnitTotal * thisQty);
-                                                }, 0).toFixed(2)}
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+  const anyDescriptions = useMemo(
+    () => formData.invoice_items.some((it) => (it.description || '').trim().length > 0),
+    [formData.invoice_items]
+  );
 
-            {loadingPreview ? (
-                <div className="py-16 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#16161f] rounded-xl border border-dashed border-gray-200 dark:border-[#2a2a38] animate-pulse">
-                    <div className="btn-spinner border-[3px] border-accent border-t-transparent rounded-full w-10 h-10 mx-auto mb-4"></div>
-                    <p className="font-medium">Calculating shipping estimates & routing...</p>
-                </div>
-            ) : (
-                <div className="w-full">
-                    <div className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-6 shadow-sm">
-                        <h4 className="text-gray-900 dark:text-accent font-bold mb-5 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
-                            🚚 Shipping Routing ({formData.orderId})
-                        </h4>
-                        <div className="text-sm space-y-8 text-gray-600 dark:text-gray-300">
-                            {plannedShipments.map((sh, idx) => (
-                                <div key={sh.id} className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-[#2a2a38] bg-gray-50 dark:bg-[#1c1c28]">
-                                    <div className="flex items-center gap-4 mb-2">
-                                        <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">Shipment {idx + 1}</span>
-                                        <span className={sh.isSelfShipment || sh.deliveryPartner === 'SELF' ? 'badge badge-emerald' : 'badge badge-indigo'}>
-                                            {(sh.isSelfShipment || sh.deliveryPartner === 'SELF') ? 'SELF SHIPPED' : sh.deliveryPartner}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-4 mb-2">
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Origin Warehouse:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.warehouse}</span></div>
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Fulfillment Mode:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.shipping_mode}</span></div>
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Payment:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.payment_mode}</span></div>
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Gross Weight:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.weight}g</span></div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-4 mb-2">
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Dimensions:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.length}L x {sh.width}W x {sh.height}H</span></div>
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Fragile:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.fragile ? 'Yes' : 'No'}</span></div>
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Contents:</span> <span className="font-medium text-gray-900 dark:text-white">{sh.products_desc}</span></div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-4 mb-2">
-                                        <div><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> <span className="font-semibold text-gray-900 dark:text-white uppercase tracking-wide text-xs">{formData.city}, {formData.state} {formData.pincode}</span></div>
-                                    </div>
-                                    {sh.deliveryPartner !== 'DTDC' && (
-                                    <div className="mt-4 p-4 bg-linear-to-br from-indigo-50 to-white dark:from-[#1c1c28] dark:to-[#22222e] rounded-xl border border-indigo-100 dark:border-accent/30 shadow-sm relative overflow-hidden">
-                                        <h5 className="text-xs uppercase text-accent mb-4 font-bold tracking-widest flex items-center gap-2">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            Delhivery Estimates
-                                        </h5>
-                                        <div className="space-y-3 relative z-10">
-                                            <div className="flex justify-between items-center bg-white/50 dark:bg-black/20 p-2.5 rounded-lg">
-                                                <span className="text-gray-600 dark:text-gray-400 font-medium text-xs">Est. Shipping Cost</span>
-                                                <span className="font-bold text-gray-900 dark:text-white text-base">{shippingCosts[sh.id] ? `₹${shippingCosts[sh.id]}` : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center bg-white/50 dark:bg-black/20 p-2.5 rounded-lg">
-                                                <span className="text-gray-600 dark:text-gray-400 font-medium text-xs">Expected Delivery</span>
-                                                <span className="font-bold text-gray-900 dark:text-white text-base">{expectedTats[sh.id] ? new Date(expectedTats[sh.id]).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : <span className="text-gray-400 font-normal italic text-sm">Calculating...</span>}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
+  const perUnitTotal = (it: typeof formData.invoice_items[0]) =>
+    it.final_price ?? (((it.item_total || 0) + (it.tax_amount || 0)) / (it.quantity || 1));
 
-            <div className="mt-8 flex justify-between">
-                <div></div>
-                <button
-                    className="btn btn-submit w-auto px-8"
-                    onClick={handleConfirm}
-                    disabled={loadingPreview || submitting}
-                >
-                    {submitting ? (
-                        <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Processing...</>
-                    ) : (
-                        'Schedule Shipment ➔'
-                    )}
-                </button>
-            </div>
+  return (
+    <div className="form-section animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="section-title mb-0">
+          <span className="section-icon">🔍</span> Confirm Shipping
+        </h3>
+        <button className="btn btn-secondary py-1.5 px-4 text-sm font-semibold" onClick={onPrev} disabled={submitting}>
+          🡨 Back
+        </button>
+      </div>
+
+      <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm text-sm text-gray-700 dark:text-gray-300">
+        <div className="flex flex-wrap gap-x-8 gap-y-2">
+          <div><span className="font-semibold text-gray-500 dark:text-gray-400">Order ID:</span> {formData.orderId}</div>
+          <div><span className="font-semibold text-gray-500 dark:text-gray-400">Customer:</span> {formData.customer_name}</div>
+          <div><span className="font-semibold text-gray-500 dark:text-gray-400">Payment:</span> {formData.payment_mode || 'Prepaid'}</div>
         </div>
-    );
+      </div>
+
+      <ErrorBox message={errorMsg} onDismiss={() => setErrorMsg('')} />
+
+      {/* Items summary */}
+      <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
+        <h4 className="text-gray-900 dark:text-accent font-bold mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
+          📦 Items in this Order
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#1c1c28] uppercase border-b border-gray-100 dark:border-[#2a2a38]">
+              <tr>
+                <th className="px-2 py-2 rounded-l-lg font-semibold">Item</th>
+                {anyDescriptions && <th className="px-2 py-2 font-semibold">Description</th>}
+                <th className="px-2 py-2 font-semibold text-center">Price</th>
+                <th className="px-2 py-2 font-semibold text-center">Qty</th>
+                <th className="px-2 py-2 font-semibold text-center">Total</th>
+                <th className="px-2 py-2 rounded-r-lg font-semibold text-center">Allocated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a38]">
+              {formData.invoice_items.map((it, idx) => (
+                <tr key={idx} className="text-gray-700 dark:text-gray-300">
+                  <td className="px-2 py-2.5 font-medium">{it.name}</td>
+                  {anyDescriptions && (
+                    <td className="px-2 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+                      {(it.description || '').trim() || <span className="italic text-gray-400">—</span>}
+                    </td>
+                  )}
+                  <td className="px-2 py-2.5 text-center">₹{perUnitTotal(it).toFixed(2)}</td>
+                  <td className="px-2 py-2.5 text-center">{it.quantity}</td>
+                  <td className="px-2 py-2.5 text-center font-medium">₹{(perUnitTotal(it) * it.quantity).toFixed(2)}</td>
+                  <td className="px-2 py-2.5 text-center">
+                    <span className={getAllocatedQtyForLine(idx) === it.quantity ? 'text-green-500' : 'text-orange-400'}>
+                      {getAllocatedQtyForLine(idx)}/{it.quantity}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Shipment planner */}
+      <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4 mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3">
+          <h4 className="text-gray-900 dark:text-accent font-bold flex items-center gap-2 text-lg mb-0">
+            🧩 Split Shipments
+          </h4>
+          <AddShipmentButtons onAdd={addShipment} />
+        </div>
+
+        <div className="space-y-4">
+          {plannedShipments.map((sh, idx) => (
+            <div key={sh.id} className="border border-gray-100 dark:border-[#2a2a38] rounded-xl p-4 bg-gray-50 dark:bg-[#1c1c28]">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">
+                    Shipment {idx + 1}
+                  </span>
+                  <span className={isSelfShipment(sh) ? 'badge badge-emerald' : 'badge badge-indigo'}>
+                    {isSelfShipment(sh) ? 'SELF SHIPPED' : sh.deliveryPartner === 'Shadowfax' ? 'SHADOWFAX' : sh.deliveryPartner === 'DTDC' ? 'DTDC' : 'DELHIVERY'}
+                  </span>
+                </div>
+                {plannedShipments.length > 1 && (
+                  <button type="button" className="text-xs text-red-400 hover:underline" onClick={() => removeShipment(sh.id)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <ShipmentForm
+                shipment={sh}
+                index={idx}
+                onChange={updateShipment}
+                deliveryPartnerOptions={DELIVERY_PARTNER_OPTIONS}
+                showPartnerSelector={!isSelfShipment(sh)}
+              />
+
+              {/* Self-ship fields */}
+              {isSelfShipment(sh) && (
+                <div className="form-grid-2 mt-3">
+                  <div className="form-group">
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-1.5 text-sm">Shipping Provider *</label>
+                    <select className="form-input" value={sh.provider || ''}
+                      onChange={(e) => updateShipment(sh.id, { provider: e.target.value })}>
+                      <option value="">Select Provider</option>
+                      {['Shadowfax', 'DTDC', 'XpressBees', 'Delhivery', 'India Post'].map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-1.5 text-sm">AWB Number *</label>
+                    <input className="form-input" value={sh.awb || ''} placeholder="Enter AWB"
+                      onChange={(e) => updateShipment(sh.id, { awb: e.target.value })} />
+                  </div>
+                </div>
+              )}
+
+              {/* Manual AWB for DTDC/Shadowfax */}
+              {(sh.deliveryPartner === 'DTDC' || sh.deliveryPartner === 'Shadowfax') && (
+                <div className="form-grid-2 mt-3">
+                  <div className="form-group">
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-1.5 text-sm">AWB Number (Optional)</label>
+                    <input className="form-input" value={sh.awb || ''} placeholder={`Enter ${sh.deliveryPartner} AWB`}
+                      onChange={(e) => updateShipment(sh.id, { awb: e.target.value })} />
+                  </div>
+                </div>
+              )}
+
+              <ItemAllocationTable
+                items={formData.invoice_items}
+                shipment={sh}
+                onChangeQty={updateShipmentItemQty}
+                getAllocatedQty={getAllocatedQtyForLine}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Estimates / Routing */}
+      {loadingPreview ? (
+        <Spinner text="Calculating shipping estimates & routing..." />
+      ) : (
+        <div className="w-full">
+          <div className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-6 shadow-sm">
+            <h4 className="text-gray-900 dark:text-accent font-bold mb-5 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
+              🚚 Shipping Routing ({formData.orderId})
+            </h4>
+            <div className="text-sm space-y-8 text-gray-600 dark:text-gray-300">
+              {plannedShipments.map((sh, idx) => (
+                <div key={sh.id} className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-[#2a2a38] bg-gray-50 dark:bg-[#1c1c28]">
+                  <div className="flex items-center gap-4 mb-2">
+                    <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">Shipment {idx + 1}</span>
+                    <span className={isSelfShipment(sh) ? 'badge badge-emerald' : 'badge badge-indigo'}>
+                      {isSelfShipment(sh) ? 'SELF SHIPPED' : sh.deliveryPartner === 'Shadowfax' ? 'SHADOWFAX' : sh.deliveryPartner}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mb-2">
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Origin:</span> {sh.warehouse}</span>
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Mode:</span> {sh.shipping_mode}</span>
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Payment:</span> {sh.payment_mode}</span>
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Weight:</span> {sh.weight}g</span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mb-2">
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Dimensions:</span> {sh.length}L x {sh.width}W x {sh.height}H</span>
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Fragile:</span> {sh.fragile ? 'Yes' : 'No'}</span>
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Contents:</span> {sh.products_desc}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mb-2">
+                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> {formData.city}, {formData.state} {formData.pincode}</span>
+                  </div>
+                  {sh.deliveryPartner !== 'DTDC' && sh.deliveryPartner !== 'Shadowfax' && !isSelfShipment(sh) && (
+                    <ShipmentEstimates costs={shippingCosts} tats={expectedTats} shipmentId={sh.id} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8 flex justify-between">
+        <div></div>
+        <button className="btn btn-submit w-auto px-8" onClick={handleConfirm} disabled={loadingPreview || submitting}>
+          {submitting ? (
+            <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Processing...</>
+          ) : (
+            'Schedule Shipment ➔'
+          )}
+        </button>
+      </div>
+    </div>
+  );
 }

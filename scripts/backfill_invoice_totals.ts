@@ -81,14 +81,14 @@ function buildDateQuery(from?: string, to?: string): { $gte?: Date; $lte?: Date 
 async function main() {
     const args = parseArgs(process.argv.slice(2));
 
-    console.log('--- Backfill Order.invoiceTotal ---');
-    console.log(`mode=${args.write ? 'write' : 'dry-run'} limit=${args.limit || 'all'} concurrency=${args.concurrency}`);
-    if (args.from || args.to) console.log(`dateRange: from=${args.from || '—'} to=${args.to || '—'}`);
+    // console.log('--- Backfill Order.invoiceTotal ---');
+    // console.log(`mode=${args.write ? 'write' : 'dry-run'} limit=${args.limit || 'all'} concurrency=${args.concurrency}`);
+    if (args.from || args.to) // console.log(`dateRange: from=${args.from || '—'} to=${args.to || '—'}`);
     if (!args.write) {
-        console.log('Tip: pass --write to persist invoiceTotal updates.');
+        // console.log('Tip: pass --write to persist invoiceTotal updates.');
     }
 
-    console.log('Connecting to database...');
+    //console.log('Connecting to database...');
     // IMPORTANT: dynamic imports ensure dotenv has already populated process.env
     // before mongodb.ts reads MONGODB_URI at module initialization.
     const [{ default: connectDB }, { default: Order }, { getInvoice }] = await Promise.all([
@@ -109,7 +109,7 @@ async function main() {
     if (args.limit && args.limit > 0) q = q.limit(args.limit);
 
     const orders = await q.lean();
-    console.log(`Found ${orders.length} orders missing invoiceTotal.`);
+    // console.log(`Found ${orders.length} orders missing invoiceTotal.`);
 
     let updated = 0;
     let skipped = 0;
@@ -138,7 +138,7 @@ async function main() {
             }
 
             if (args.dryRun || !args.write) {
-                console.log(`${prefix}: would set invoiceTotal=${zohoTotal}`);
+                // console.log(`${prefix}: would set invoiceTotal=${zohoTotal}`);
                 updated++;
                 return;
             }
@@ -148,7 +148,7 @@ async function main() {
                 { $set: { invoiceTotal: zohoTotal } }
             );
 
-            console.log(`${prefix}: set invoiceTotal=${zohoTotal}`);
+            // console.log(`${prefix}: set invoiceTotal=${zohoTotal}`);
             updated++;
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -157,11 +157,11 @@ async function main() {
         }
     });
 
-    console.log('\n--- Backfill Complete ---');
-    console.log(`Total processed: ${orders.length}`);
-    console.log(`Updated        : ${updated}${args.dryRun ? ' (dry-run)' : ''}`);
-    console.log(`Skipped        : ${skipped}`);
-    console.log(`Failed         : ${failed}`);
+    // console.log('\n--- Backfill Complete ---');
+    // console.log(`Total processed: ${orders.length}`);
+    // console.log(`Updated        : ${updated}${args.dryRun ? ' (dry-run)' : ''}`);
+    // console.log(`Skipped        : ${skipped}`);
+    // console.log(`Failed         : ${failed}`);
 
     process.exit(failed > 0 ? 1 : 0);
 }

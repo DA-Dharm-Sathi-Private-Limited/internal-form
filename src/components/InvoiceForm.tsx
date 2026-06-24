@@ -15,6 +15,7 @@ import {
 import CustomerSearch from './CustomerSearch';
 import LineItemRow from './LineItemRow';
 import SuccessModal from './SuccessModal';
+import { zohoService } from '@/services/zoho';
 
 const emptyItem = (): InvoiceItem => ({
     name: '',
@@ -58,12 +59,12 @@ export default function InvoiceForm() {
 
     // Fetch default Terms & Notes on mount
     useEffect(() => {
-        fetch('/api/zoho/settings')
-            .then(res => res.json())
+        zohoService.getSettings()
             .then(data => {
-                if (data && !data.error) {
-                    if (data.notes && !notes) setNotes(data.notes);
-                    if (data.terms && !terms) setTerms(data.terms);
+                const d = data as Record<string, unknown>;
+                if (d && !d.error) {
+                    if (d.notes && !notes) setNotes(d.notes as string);
+                    if (d.terms && !terms) setTerms(d.terms as string);
                 }
             })
             .catch(err => console.error('Failed to fetch invoice settings', err));
@@ -147,13 +148,8 @@ export default function InvoiceForm() {
             if (terms) payload.terms = terms;
             if (shippingCharge) payload.shipping_charge = shippingCharge;
 
-            const res = await fetch('/api/invoices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            const data: CreateInvoiceResponse = await res.json();
+            const raw: Record<string, unknown> = await zohoService.createInvoice(payload) as Record<string, unknown>;
+            const data = raw as unknown as CreateInvoiceResponse;
 
             if (data.code === 0 && data.invoice) {
                 setSuccessData({

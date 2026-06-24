@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { dtdcService } from '@/services/dtdc';
 
 export default function DTDCOuterSheetButton() {
     const [isOpen, setIsOpen] = useState(false);
@@ -34,11 +35,10 @@ export default function DTDCOuterSheetButton() {
         setLoading(true);
         setErrorMsg('');
         try {
-            const res = await fetch(`/api/dtdc/download-outer?start=${new Date(startDate).toISOString()}&end=${new Date(endDate).toISOString()}`);
-            if (!res.ok) {
-                throw new Error('Failed to export DTDC Outer orders');
-            }
-            const data = await res.json();
+            const data = await dtdcService.downloadOuter(
+                new Date(startDate).toISOString(),
+                new Date(endDate).toISOString()
+            );
             
             if (data.success && data.files) {
                  if (data.files.length === 0) {

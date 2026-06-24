@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { dtdcService } from '@/services/dtdc';
 
 export default function DTDCExportButton() {
     const [isOpen, setIsOpen] = useState(false);
@@ -34,11 +35,10 @@ export default function DTDCExportButton() {
         setLoading(true);
         setErrorMsg('');
         try {
-            const res = await fetch(`/api/dtdc/download?start=${new Date(startDate).toISOString()}&end=${new Date(endDate).toISOString()}`);
-            if (!res.ok) {
-                throw new Error('Failed to export DTDC orders');
-            }
-            const data = await res.json();
+            const data = await dtdcService.download(
+                new Date(startDate).toISOString(),
+                new Date(endDate).toISOString()
+            );
             
             if (data.success && data.files) {
                  if (data.files.length === 0) {

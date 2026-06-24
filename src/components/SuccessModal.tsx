@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { zohoService } from '@/services/zoho';
 
 
 interface SuccessModalProps {
@@ -27,7 +28,7 @@ export default function SuccessModal({
     const handleDownloadPdf = async () => {
         setDownloading(true);
         try {
-            const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
+            const res = await zohoService.getInvoicePdf(invoiceId);
 
             if (!res.ok) {
                 const errorText = await res.text();

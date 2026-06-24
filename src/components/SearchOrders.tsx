@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import OrderDetailsExpanded, { OrderData } from './OrderDetailsExpanded';
+import { ordersService } from '@/services/orders';
+import { zohoService } from '@/services/zoho';
 
 type SearchType = 'orderId' | 'customer' | 'astrologer';
 
@@ -48,8 +50,7 @@ export default function SearchOrders() {
         searchTimerRef.current = setTimeout(async () => {
             setSuggestionsLoading(true);
             try {
-                const res = await fetch(`/api/orders/search?type=${searchType}&q=${encodeURIComponent(searchQuery.trim())}`);
-                const data = await res.json();
+                const data = await ordersService.search(searchType, searchQuery.trim());
                 if (data.success && data.orders) {
                     const uniqueNames = new Set<string>();
                     data.orders.forEach((o: any) => {
@@ -97,12 +98,11 @@ export default function SearchOrders() {
         setDisableAutocomplete(true);
         
         try {
-            const res = await fetch(`/api/orders/search?type=${searchType}&q=${encodeURIComponent(queryToSearch.trim())}`);
-            const data = await res.json();
+            const data = await ordersService.search(searchType, queryToSearch.trim());
 
-            if (!res.ok) throw new Error(data.error || 'Failed to fetch orders');
-            
-            setOrders(data.orders || []);
+            if (!data.success) throw new Error((data as { error?: string }).error || 'Failed to fetch orders');
+
+            setOrders((data.orders || []) as unknown as OrderData[]);
         } catch (err) {
             setErrorMsg(err instanceof Error ? err.message : 'Unknown error occurred while searching');
             setOrders([]);
@@ -119,7 +119,7 @@ export default function SearchOrders() {
         if (!orderId) return;
         setDownloadingInvoiceFor(orderId);
         try {
-            const res = await fetch(`/api/invoices/${orderId}/pdf`);
+            const res = await zohoService.getInvoicePdf(orderId);
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Failed to download invoice');

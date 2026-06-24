@@ -101,8 +101,8 @@ export async function createShipment(shipment: ShipmentData, pickupLocation: str
 
     const payloadString = `format=json&data=${encodeURIComponent(JSON.stringify(payload))}`;
 
-    console.log("SENDING TO DELHIVERY:", payloadString);
-    console.dir(payload, { depth: null });
+    // console.log("SENDING TO DELHIVERY:", payloadString);
+    // console.dir(payload, { depth: null });
 
     const res = await fetch(`${baseUrl}/api/cmu/create.json`, {
         method: 'POST',

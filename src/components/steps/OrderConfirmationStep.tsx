@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CombinedFormData } from '@/types/wizard';
+import { zohoService } from '@/services/zoho';
 
 interface Props {
     formData: CombinedFormData;
@@ -26,7 +27,7 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
         if (!formData.invoiceId) return;
         setDownloadingInvoice(true);
         try {
-            const res = await fetch(`/api/invoices/${formData.invoiceId}/pdf`);
+            const res = await zohoService.getInvoicePdf(formData.invoiceId);
             if (!res.ok) throw new Error('Failed to download invoice pdf');
             const blob = await res.blob();
             downloadBlob(blob, `invoice-${formData.orderId}.pdf`);

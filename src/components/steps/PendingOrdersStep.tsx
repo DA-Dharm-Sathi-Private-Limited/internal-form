@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { InvoiceItem, Salesperson } from '@/types/invoice';
+import { ordersService } from '@/services/orders';
 
 interface Order {
     _id: string;
@@ -41,10 +42,9 @@ export default function PendingOrdersStep({ onSelectOrder }: Props) {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/orders');
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setOrders(data.orders);
+            const data = await ordersService.list();
+            if (data.success) {
+                setOrders(data.orders as unknown as Order[]);
             } else {
                 throw new Error(data.error || 'Failed to fetch orders');
             }

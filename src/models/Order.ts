@@ -93,7 +93,7 @@ const OrderSchema = new mongoose.Schema(
                 vendor: String, // Maps to Warehouse/Origin from vendors.json
                 deliveryPartner: {
                     type: String,
-                    enum: ['Delhivery', 'DTDC', 'SELF', ...SHIPPING_PROVIDERS],
+                    enum: ['Delhivery', 'DTDC', 'SELF', 'Shadowfax', ...SHIPPING_PROVIDERS],
                     default: 'Delhivery'
                 },
                 waybill: String, // optional for self-shipped / DTDC
@@ -131,7 +131,7 @@ const OrderSchema = new mongoose.Schema(
         // High-level order shipping status.
         status: {
             type: String,
-            enum: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED', 'DTDC_SCHEDULED', 'RTO'],
+            enum: ['PENDING_SHIPPING','SHADOWFAX_SCHEDULED', 'PARTIALLY_SHIPPED', 'SHIPPED', 'SELF_SHIPPED', 'DTDC_SCHEDULED', 'RTO'],
             default: 'PENDING_SHIPPING',
         },
         selfShipped: {

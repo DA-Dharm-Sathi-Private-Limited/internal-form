@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ordersService } from '@/services/orders';
 
 export default function SyncDailyOrdersButton() {
     const [loading, setLoading] = useState(false);
@@ -9,14 +10,8 @@ export default function SyncDailyOrdersButton() {
     const handleSync = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/orders/sync-daily', { method: 'POST' });
-            const data = await res.json();
-            
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to sync orders');
-            }
-            
-            toast.success(data.message || 'Orders synced successfully to Google Sheets');
+            const data = await ordersService.syncDaily();
+            toast.success((data as { message?: string }).message || 'Orders synced successfully to Google Sheets');
         } catch (err: any) {
             console.error('Sync error:', err);
             toast.error(err.message || 'Error occurred while syncing orders');

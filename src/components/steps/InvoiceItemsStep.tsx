@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from 'react';
 
 import { CombinedFormData } from '@/types/wizard';
-import LineItemRow from '../LineItemRow'; // Reusing existing UI
+import LineItemRow from '../LineItemRow';
 import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
 import { toast } from 'sonner';
 import { invoiceItemsStepSchema } from '@/lib/validation';
 import { isInterstateOrder, normalizeItemTaxForContext, validateTaxesForOrder } from '@/lib/tax';
+import { zohoService } from '@/services/zoho';
 
 interface Props {
     formData: CombinedFormData;
@@ -37,20 +38,12 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
     useEffect(() => {
         async function loadData() {
             try {
-                const [itemsRes, taxesRes] = await Promise.all([
-                    fetch('/api/zoho/items'),
-                    fetch('/api/zoho/taxes')
+                const [items, taxes] = await Promise.all([
+                    zohoService.getItems(),
+                    zohoService.getTaxes(),
                 ]);
-
-                if (itemsRes.ok) {
-                    const data = await itemsRes.json();
-                    setZohoItems(data);
-                }
-
-                if (taxesRes.ok) {
-                    const data = await taxesRes.json();
-                    setZohoTaxes(data);
-                }
+                setZohoItems(items as ZohoItem[]);
+                setZohoTaxes(taxes as ZohoTax[]);
             } catch (err) {
                 console.error("Failed to load zoho data:", err);
             }
