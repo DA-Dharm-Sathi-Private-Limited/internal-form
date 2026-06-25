@@ -281,34 +281,57 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         }
 
         const shadowfaxPayload = {
-          client_order_id: `${formData.orderId}-SFX${i + 1}`,
-          awb_number: awbNumber,
-          pickup: {
+          order_type: 'warehouse',
+          order_details: {
+            client_order_id: `${formData.orderId}-SFX${i + 1}`,
+            awb_number: awbNumber,
+            actual_weight: 0,
+            volumetric_weight: 0,
+            product_value: Math.round(amount),
+            payment_mode: sh.payment_mode === 'COD' ? 'COD' : 'Prepaid',
+            cod_amount: sh.payment_mode === 'COD' ? String(sh.cod_amount ?? Math.round(amount)) : '0',
+            total_amount: Math.round(amount),
+          },
+          customer_details: {
+            name: formData.customer_name,
+            contact: formData.phone || '9999999999',
+            address_line_1: formData.address || 'N/A',
+            address_line_2: '',
+            city: formData.city,
+            state: formData.state,
+            pincode: Number(formData.pincode),
+            alternate_contact: formData.phone || '9999999999',
+            location_type: 'residential',
+          },
+          pickup_details: {
             name: sh.warehouse || formData.warehouse || 'Warehouse',
-            phone: '9999999999',
-            address: sh.warehouse || 'Warehouse Address',
+            contact: '9999999999',
+            address_line_1: 'Warehouse Address',
             city: 'Noida',
             state: 'Uttar Pradesh',
-            pincode: '201301',
+            pincode: 201301,
+            unique_code: sh.warehouse || 'warehouse',
           },
-          warehouse: {
-            name: sh.warehouse || formData.warehouse || 'Warehouse',
-            phone: '9999999999',
-            address: sh.warehouse || 'Warehouse Address',
+          rto_details: {
+            name: 'DA Dharm Sathi Pvt Ltd',
+            contact: '9999999999',
+            address_line_1: 'Noida',
             city: 'Noida',
             state: 'Uttar Pradesh',
-            pincode: '201301',
+            pincode: 201301,
+            unique_code: 'return',
           },
-          items: eff.map((it) => {
+          product_details: eff.map((it) => {
             const base = formData.invoice_items[it.lineIndex];
             return {
-              sku: base.name || `SKU-${it.lineIndex + 1}`,
-              product_name: base.name || 'Item',
-              quantity: it.quantity,
+              sku_name: base.name || `SKU-${it.lineIndex + 1}`,
+              sku_id: base.name || `SKU-${it.lineIndex + 1}`,
+              price: base.final_price || 0,
+              additional_details: {
+                quantity: it.quantity,
+              },
             };
           }),
-          cod_amount: sh.payment_mode === 'COD' ? Number(sh.cod_amount ?? amount) : 0,
-          payment_mode: sh.payment_mode || 'Prepaid',
         };
 
         const sfRes = await shadowfaxService.createShipment(shadowfaxPayload);

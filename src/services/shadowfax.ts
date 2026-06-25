@@ -1,10 +1,10 @@
 import { api } from './api';
 
 export const shadowfaxService = {
-  checkServiceability(pincodes: string) {
-    return api.get<{ success: boolean; data?: { pincode: string; serviceable: boolean }[]; error?: string }>(
+  checkServiceability(params: { service?: string; pincodes?: string; page?: number; count?: number }) {
+    return api.get<{ success: boolean; data?: unknown; error?: string }>(
       '/api/shadowfax/serviceability',
-      { pincodes }
+      params as Record<string, string | number | undefined | null>
     );
   },
 
@@ -22,9 +22,16 @@ export const shadowfaxService = {
     );
   },
 
-  track(clientOrderId: string) {
+  track(awbNumber: string) {
     return api.get<{ success: boolean; data?: Record<string, unknown>; error?: string }>(
-      `/api/shadowfax/track/${clientOrderId}`
+      `/api/shadowfax/track/${awbNumber}`
+    );
+  },
+
+  trackMultiple(awbNumbers: string[]) {
+    return api.post<{ success: boolean; data?: Record<string, unknown>; error?: string }>(
+      '/api/shadowfax/track/',
+      { awb_numbers: awbNumbers }
     );
   },
 
@@ -32,6 +39,13 @@ export const shadowfaxService = {
     return api.post<{ success: boolean; error?: string }>(
       '/api/shadowfax/cancel',
       { client_order_id: clientOrderId, cancel_remarks: cancelRemarks }
+    );
+  },
+
+  updateOrder(payload: Record<string, unknown>) {
+    return api.post<{ success: boolean; data?: Record<string, unknown>; error?: string; message?: string }>(
+      '/api/shadowfax/update',
+      payload
     );
   },
 };

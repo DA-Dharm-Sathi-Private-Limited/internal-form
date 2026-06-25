@@ -5,8 +5,8 @@ import { withError, success, fail } from '@/lib/api-handler';
 export const POST = withError(async (request: NextRequest) => {
   const body = await request.json();
 
-  if (!body.client_order_id) {
-    return fail('Missing client_order_id', 400);
+  if (!body.request_id) {
+    return fail('Missing request_id (AWB or client order ID)', 400);
   }
   if (!body.cancel_remarks) {
     return fail('Missing cancel_remarks', 400);
