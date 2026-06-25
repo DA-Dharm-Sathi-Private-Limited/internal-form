@@ -68,6 +68,8 @@ export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
       ? [formData.waybill]
       : [];
 
+  const shipmentLabels = formData.plannedShipments || [];
+
   return (
     <div className="form-section animate-in fade-in slide-in-from-bottom-4 duration-500 text-center py-8">
       <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 border-2 border-green-500/50">✓</div>
@@ -75,25 +77,36 @@ export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
       <h2 className="text-2xl font-bold text-white mb-2">Shipment Scheduled!</h2>
       <p className="text-gray-400 mb-8 max-w-md mx-auto">
         {displayWaybills.length > 1
-          ? `${displayWaybills.length} shipment labels are ready for order ${formData.orderId}.`
-          : `The shipment label is ready via Delhivery for order ${formData.orderId}.`
+          ? `${displayWaybills.length} shipments are scheduled for order ${formData.orderId}.`
+          : `The shipment is scheduled for order ${formData.orderId}.`
         }
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-10 text-left">
-        {displayWaybills.map((wb, idx) => (
-          <div key={wb} className="bg-[#16161f] p-5 rounded-xl border border-accent/30 flex flex-col justify-between">
-            <div>
-              <h4 className="text-accent text-xs uppercase tracking-wider mb-1">
-                {displayWaybills.length > 1 ? `Package ${idx + 1}` : 'Delhivery Waybill'}
-              </h4>
-              <p className="text-lg font-mono font-bold text-white mb-4">{wb}</p>
+        {displayWaybills.map((wb, idx) => {
+          const sh = shipmentLabels[idx];
+          const partner = sh?.deliveryPartner || 'Delhivery';
+          return (
+            <div key={wb} className="bg-[#16161f] p-5 rounded-xl border border-accent/30 flex flex-col justify-between">
+              <div>
+                <h4 className="text-accent text-xs uppercase tracking-wider mb-1">
+                  {displayWaybills.length > 1 ? `Package ${idx + 1}` : `${partner} Waybill`}
+                </h4>
+                <p className="text-lg font-mono font-bold text-white mb-4">{wb}</p>
+              </div>
+              {partner === 'Delhivery' && (
+                <button className="btn btn-primary w-full text-sm py-2" onClick={() => handleDownloadLabel(wb)} disabled={downloadingLabel}>
+                  {downloadingLabel ? 'Fetching...' : '🏷️ Download Label'}
+                </button>
+              )}
+              {partner !== 'Delhivery' && (
+                <div className="text-xs text-gray-500 text-center py-2">
+                  Tracking: {wb}
+                </div>
+              )}
             </div>
-            <button className="btn btn-primary w-full text-sm py-2" onClick={() => handleDownloadLabel(wb)} disabled={downloadingLabel}>
-              {downloadingLabel ? 'Fetching...' : '🏷️ Download Label'}
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="max-w-md mx-auto bg-[#16161f] border border-[#2a2a38] rounded-xl p-5 mb-10 text-left">

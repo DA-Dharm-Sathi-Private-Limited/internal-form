@@ -31,4 +31,5 @@ export const GET = withError(async (request: NextRequest) => {
   });
 
   return NextResponse.json({ success: true, results: formattedResults }, { status: 200 });
+  
 });

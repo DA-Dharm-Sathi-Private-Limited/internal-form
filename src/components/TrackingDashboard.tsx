@@ -5,6 +5,7 @@ import { TrackingShipmentData } from '@/types/delhivery';
 import Link from 'next/link';
 import { ordersService } from '@/services/orders';
 import { delhiveryService } from '@/services/delhivery';
+import { shadowfaxService } from '@/services/shadowfax';
 import { zohoService } from '@/services/zoho';
 import TrackingSearchBar from './TrackingSearchBar';
 import TrackingFilterPanel from './TrackingFilterPanel';
@@ -109,33 +110,67 @@ export default function TrackingDashboard() {
     }
     setSelectedSelfShippedOrder(null);
 
+    const isShadowfaxAWB = /^SF/i.test(query.trim());
     const isWaybill = /^\d{12,15}$/.test(query.trim());
-    const trackParams: { waybill?: string; ref_ids?: string } = {};
-    if (isWaybill) {
-      trackParams.waybill = query.trim();
-    } else {
-      trackParams.ref_ids = query.trim();
-    }
 
     try {
-      const data = await delhiveryService.track(trackParams);
-
-      if (data.Error) {
-        if (
-          typeof data.Error === 'string' &&
-          (data.Error.includes('No such waybill') ||
-            data.Error.includes('Not Found') ||
-            data.Error.includes('Order Id found'))
-        ) {
-          throw new Error('Shipment created, but not yet scanned by Delhivery.');
+      if (isShadowfaxAWB) {
+        const orderIdMatch = query.trim();
+        const sfData = await shadowfaxService.track(orderIdMatch);
+        if (!sfData.success || !sfData.data) {
+          throw new Error(sfData.error || 'Shadowfax tracking failed');
         }
-        throw new Error(`Delhivery returned: ${data.Error}`);
-      }
-
-      if (data.ShipmentData && data.ShipmentData.length > 0) {
-        setTrackingData(data.ShipmentData[0] as TrackingShipmentData);
+        const sfTracking = sfData.data as Record<string, unknown>;
+        setTrackingData({
+          Shipment: {
+            AWB: (sfTracking.awb_number as string) || query.trim(),
+            ReferenceNo: (sfTracking.client_order_id as string) || '',
+            ExpectedDeliveryDate: '',
+            PickUpDate: '',
+            Destination: (sfTracking.current_location as string) || '',
+            DestRecieveDate: '',
+            POD: '',
+            OrderType: 'Shadowfax',
+            OutDestinationDate: '',
+            ReturnedDate: '',
+            DispatchCount: 1,
+            InvoiceAmount: (sfTracking.cod_amount as number) || 0,
+            Origin: '',
+            OriginRecieveDate: '',
+            Carrier: 'Shadowfax',
+            Consignee: { City: '', Name: '', Country: '', Address1: '', Address2: '', Address3: '', PinCode: 0, State: '', Telephone1: '', Telephone2: '' },
+            CurrentStatus: { Status: (sfTracking.status as string) || 'New', StatusDateTime: '', StatusLocation: (sfTracking.current_location as string) || '', StatusType: (sfTracking.status as string) || '' },
+            Status: { Status: (sfTracking.status as string) || 'New', StatusDateTime: '', StatusLocation: (sfTracking.current_location as string) || '', StatusType: (sfTracking.status as string) || '' },
+            Scans: [],
+          },
+        } as TrackingShipmentData);
       } else {
-        throw new Error('No tracking information found for this ID');
+        const trackParams: { waybill?: string; ref_ids?: string } = {};
+        if (isWaybill) {
+          trackParams.waybill = query.trim();
+        } else {
+          trackParams.ref_ids = query.trim();
+        }
+
+        const data = await delhiveryService.track(trackParams);
+
+        if (data.Error) {
+          if (
+            typeof data.Error === 'string' &&
+            (data.Error.includes('No such waybill') ||
+              data.Error.includes('Not Found') ||
+              data.Error.includes('Order Id found'))
+          ) {
+            throw new Error('Shipment created, but not yet scanned by Delhivery.');
+          }
+          throw new Error(`Delhivery returned: ${data.Error}`);
+        }
+
+        if (data.ShipmentData && data.ShipmentData.length > 0) {
+          setTrackingData(data.ShipmentData[0] as TrackingShipmentData);
+        } else {
+          throw new Error('No tracking information found for this ID');
+        }
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unknown error');
@@ -268,7 +303,7 @@ export default function TrackingDashboard() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Active Waybills</h3>
             <span className="text-xs bg-accent/10 dark:bg-accent/20 text-accent px-3 py-1.5 rounded-full border border-accent/20 dark:border-accent/30 flex items-center gap-1.5 font-medium shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(108,99,255,0.8)]"></span> Delhivery API
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(108,99,255,0.8)]"></span> Active Shipments
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">

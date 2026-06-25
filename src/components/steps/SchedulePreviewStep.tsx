@@ -14,6 +14,7 @@ import { useOrderUpdate } from '@/hooks/useOrderUpdate';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { delhiveryService } from '@/services/delhivery';
+import { shadowfaxService } from '@/services/shadowfax';
 
 const DELIVERY_PARTNER_OPTIONS = [
   { value: 'Delhivery', label: 'Delhivery' },
@@ -171,7 +172,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
           if (!sh.awb?.trim()) throw new Error(`Shipment ${i + 1}: AWB is required`);
           return;
         }
-        if (sh.deliveryPartner === 'DTDC' || sh.deliveryPartner === 'Shadowfax') return;
+        if (sh.deliveryPartner === 'DTDC') return;
         const eff = sh.items.filter((it) => it.quantity > 0);
         if (eff.length === 0) return;
         if (!sh.weight || sh.weight <= 0) throw new Error(`Shipment ${i + 1}: Weight must be > 0`);
@@ -191,6 +192,11 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
       const delhiveryShipments = plannedShipments
         .map((sh, i) => ({ sh, i }))
         .filter(({ sh }) => !isSelfShipment(sh) && sh.deliveryPartner !== 'DTDC' && sh.deliveryPartner !== 'Shadowfax');
+
+      // Process Shadowfax shipments (API-integrated)
+      const shadowfaxShipments = plannedShipments
+        .map((sh, i) => ({ sh, i }))
+        .filter(({ sh }) => !isSelfShipment(sh) && sh.deliveryPartner === 'Shadowfax');
 
       for (const { sh, i } of delhiveryShipments) {
         const eff = sh.items.filter((it) => it.quantity > 0);
@@ -253,22 +259,91 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         });
       }
 
-      // Process manual partner shipments (DTDC, Shadowfax)
-      for (const partner of ['DTDC', 'Shadowfax'] as const) {
-        for (const sh of plannedShipments.filter((s) => s.deliveryPartner === partner)) {
-          const eff = sh.items.filter((it) => it.quantity > 0);
-          if (eff.length === 0) continue;
-          createdShipmentsForOrder.push({
-            vendor: sh.warehouse || sh.vendor,
-            deliveryPartner: partner,
-            waybill: sh.awb || undefined,
-            shippingCost: 0,
-            warehouse: sh.warehouse || (formData.warehouse as string),
-            paymentMode: sh.payment_mode || 'Prepaid',
-            codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
-            items: eff,
-          });
+      // Process Shadowfax shipments (API auto-create)
+      for (const { sh, i } of shadowfaxShipments) {
+        const eff = sh.items.filter((it) => it.quantity > 0);
+        if (eff.length === 0) continue;
+
+        let amount = 0;
+        eff.forEach((it) => {
+          const base = formData.invoice_items[it.lineIndex];
+          const pu = ((base.item_total || 0) + (base.tax_amount || 0)) / (base.quantity || 1);
+          amount += pu * it.quantity;
+        });
+
+        let awbNumber = sh.awb || '';
+        if (!awbNumber) {
+          const awbRes = await shadowfaxService.generateAWB(1);
+          if (!awbRes.success || !awbRes.awbs || awbRes.awbs.length === 0) {
+            throw new Error(`Shadowfax Shipment ${i + 1}: Failed to generate AWB`);
+          }
+          awbNumber = awbRes.awbs[0];
         }
+
+        const shadowfaxPayload = {
+          client_order_id: `${formData.orderId}-SFX${i + 1}`,
+          awb_number: awbNumber,
+          pickup: {
+            name: sh.warehouse || formData.warehouse || 'Warehouse',
+            phone: '9999999999',
+            address: sh.warehouse || 'Warehouse Address',
+            city: 'Noida',
+            state: 'Uttar Pradesh',
+            pincode: '201301',
+          },
+          warehouse: {
+            name: sh.warehouse || formData.warehouse || 'Warehouse',
+            phone: '9999999999',
+            address: sh.warehouse || 'Warehouse Address',
+            city: 'Noida',
+            state: 'Uttar Pradesh',
+            pincode: '201301',
+          },
+          items: eff.map((it) => {
+            const base = formData.invoice_items[it.lineIndex];
+            return {
+              sku: base.name || `SKU-${it.lineIndex + 1}`,
+              product_name: base.name || 'Item',
+              quantity: it.quantity,
+            };
+          }),
+          cod_amount: sh.payment_mode === 'COD' ? Number(sh.cod_amount ?? amount) : 0,
+          payment_mode: sh.payment_mode || 'Prepaid',
+        };
+
+        const sfRes = await shadowfaxService.createShipment(shadowfaxPayload);
+        if (!sfRes.success) {
+          throw new Error(`Shadowfax Shipment ${i + 1}: ${sfRes.error || 'Failed to create shipment'}`);
+        }
+
+        allWaybills.push(awbNumber);
+
+        createdShipmentsForOrder.push({
+          vendor: sh.warehouse || sh.vendor || 'SHADOWFAX',
+          deliveryPartner: 'Shadowfax',
+          waybill: awbNumber,
+          shippingCost: 0,
+          warehouse: sh.warehouse || (formData.warehouse as string),
+          paymentMode: sh.payment_mode || 'Prepaid',
+          codAmount: sh.payment_mode === 'COD' ? Number(sh.cod_amount ?? amount) : undefined,
+          items: eff,
+        });
+      }
+
+      // Process manual partner shipments (DTDC only)
+      for (const sh of plannedShipments.filter((s) => s.deliveryPartner === 'DTDC')) {
+        const eff = sh.items.filter((it) => it.quantity > 0);
+        if (eff.length === 0) continue;
+        createdShipmentsForOrder.push({
+          vendor: sh.warehouse || sh.vendor,
+          deliveryPartner: 'DTDC',
+          waybill: sh.awb || undefined,
+          shippingCost: 0,
+          warehouse: sh.warehouse || (formData.warehouse as string),
+          paymentMode: sh.payment_mode || 'Prepaid',
+          codAmount: sh.payment_mode === 'COD' && sh.cod_amount !== undefined && sh.cod_amount !== '' ? Number(sh.cod_amount) : undefined,
+          items: eff,
+        });
       }
 
       // Process self shipments

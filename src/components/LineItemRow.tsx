@@ -86,6 +86,8 @@ export default function LineItemRow({
     canRemove,
     readOnlyAllExceptCostPrice = false,
 }: LineItemRowProps) {
+    const safeZohoItems = Array.isArray(zohoItems) ? zohoItems : [];
+    const safeZohoTaxes = Array.isArray(zohoTaxes) ? zohoTaxes : [];
     const preventWheelValueChange = (event: WheelEvent<HTMLInputElement>) => {
         event.currentTarget.blur();
     };
@@ -115,7 +117,7 @@ export default function LineItemRow({
                             const updates: Partial<InvoiceItem> = { name: val };
 
                             // Check if val matches a Zoho item
-                            const matched = zohoItems.find(z => z.name === val);
+                            const matched = safeZohoItems.find(z => z.name === val);
                             if (matched) {
                                 // Auto-populate other fields
                                 updates.zoho_item_id = matched.item_id;
@@ -135,7 +137,7 @@ export default function LineItemRow({
                         required
                     />
                     <datalist id={`zoho-items-${index}`}>
-                        {zohoItems.map((z, i) => (
+                        {safeZohoItems.map((z, i) => (
                             <option key={z.item_id || i} value={z.name} />
                         ))}
                     </datalist>
@@ -255,7 +257,7 @@ export default function LineItemRow({
                     >
                         <option value="" disabled>Select tax…</option>
                         <option value="NO_TAX">No Tax (0%)</option>
-                        {zohoTaxes.map(t => (
+                        {safeZohoTaxes.map(t => (
                             <option key={t.tax_id} value={t.tax_id}>{t.tax_name} ({t.tax_percentage}%)</option>
                         ))}
                     </select>

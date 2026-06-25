@@ -168,6 +168,7 @@ export default function Header() {
             {list.map((item) => {
               return (
                 <Link
+                  key={item.href}
                   href={item.href}
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
