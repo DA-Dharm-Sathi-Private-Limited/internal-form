@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import { zohoService } from '@/services/zoho';
 
 interface Props {
-    formData: CombinedFormData;
     onReset: () => void;
 }
 
-export default function OrderConfirmationStep({ formData, onReset }: Props) {
+export default function OrderConfirmationStep({ onReset }: Props) {
+    const formData = useWizardStore((s) => s.formData);
     const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
     const downloadBlob = (blob: Blob, filename: string) => {
@@ -52,7 +52,6 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
             </p>
 
             <div className="flex justify-center items-stretch max-w-sm mx-auto mb-10">
-                {/* Invoice Card */}
                 <div className="w-full bg-[#16161f] p-5 rounded-xl border border-[#2a2a38]">
                     <h4 className="text-gray-400 text-sm uppercase tracking-wider mb-1">Zoho Invoice</h4>
                     <p className="text-xl font-bold text-white mb-4">{formData.orderId}</p>

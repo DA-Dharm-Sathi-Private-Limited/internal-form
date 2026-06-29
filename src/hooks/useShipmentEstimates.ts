@@ -6,23 +6,20 @@ interface UseShipmentEstimatesParams {
   destPincode: string;
 }
 
-interface Estimates {
-  costs: Record<string, number>;
-  tats: Record<string, string>;
-}
-
 export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipmentEstimatesParams) {
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [tats, setTats] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!destPincode || plannedShipments.length === 0) return;
+    if (!destPincode || plannedShipments.length === 0) {
+      return;
+    }
 
     let cancelled = false;
-    setLoading(true);
 
     async function fetchAll() {
+      setLoading(true);
       const newCosts: Record<string, number> = {};
       const newTats: Record<string, string> = {};
 
@@ -53,7 +50,9 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
             } else if (tatData.expected_delivery_date) {
               newTats[sh.id] = tatData.expected_delivery_date;
             }
-          } catch { /* ignore per-shipment failure */ }
+          } catch (err) {
+            console.error(`[useShipmentEstimates] Shipment ${sh.id} failed:`, err);
+          }
         })
       );
 

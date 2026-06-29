@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { InvoiceItem, Salesperson } from '@/types/invoice';
+import { useWizardStore } from '@/store/wizardStore';
 import { ordersService } from '@/services/orders';
 
 interface Order {
@@ -26,18 +27,13 @@ interface Order {
     createdAt: string;
 }
 
-interface Props {
-    onSelectOrder: (order: Order) => void;
-}
+export default function PendingOrdersStep() {
+    const updateForm = useWizardStore((s) => s.updateForm);
+    const nextStep = useWizardStore((s) => s.nextStep);
 
-export default function PendingOrdersStep({ onSelectOrder }: Props) {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    useEffect(() => {
-        fetchOrders();
-    }, []);
 
     const fetchOrders = async () => {
         try {
@@ -53,6 +49,52 @@ export default function PendingOrdersStep({ onSelectOrder }: Props) {
         } finally {
             setLoading(false);
         }
+    };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchOrders();
+    }, []);
+
+    const handleSelectOrder = (order: Order) => {
+        const normalizedItems: InvoiceItem[] = (order.invoiceItems || []).map((raw) => {
+            const item = raw as unknown as Record<string, unknown>;
+            return {
+                name: String(item.name ?? ''),
+                description: item.description ? String(item.description) : '',
+                quantity: Number(item.quantity ?? 1),
+                price: Number(item.price ?? item.rate ?? 0),
+                final_price: typeof item.final_price === 'number' ? item.final_price as number : undefined,
+                discount: typeof item.discount === 'number' ? item.discount as number : undefined,
+                tax_id: typeof item.tax_id === 'string' ? item.tax_id as string : 'NO_TAX',
+                tax_amount: typeof item.tax_amount === 'number' ? item.tax_amount as number : undefined,
+                item_total: typeof item.item_total === 'number' ? item.item_total as number : undefined,
+                hsn_or_sac: typeof item.hsn_or_sac === 'string' ? item.hsn_or_sac as string : undefined,
+                unit: typeof item.unit === 'string' ? item.unit as string : undefined,
+                carat_size: typeof item.carat_size === 'number' ? item.carat_size as number : undefined,
+                zoho_item_id: typeof item.zoho_item_id === 'string' ? item.zoho_item_id as string : undefined,
+                cost_price: typeof item.cost_price === 'number' ? item.cost_price as number : 0,
+            };
+        });
+
+        updateForm({
+            invoiceId: order.zohoInvoiceId,
+            orderId: order.orderId,
+            customer_name: order.customerDetails.customer_name,
+            email: order.customerDetails.email,
+            phone: order.customerDetails.phone,
+            country_code: order.customerDetails.country_code,
+            address: order.customerDetails.address,
+            city: order.customerDetails.city,
+            state: order.customerDetails.state,
+            country: order.customerDetails.country,
+            pincode: order.customerDetails.pincode,
+            invoice_items: normalizedItems,
+            salesperson_name: order.salespersonName,
+            payment_mode: order.paymentMode === 'COD' ? 'COD' : 'Prepaid',
+            isPincodeServiceable: true,
+        });
+        nextStep();
     };
 
     if (loading) {
@@ -92,7 +134,7 @@ export default function PendingOrdersStep({ onSelectOrder }: Props) {
                         <div
                             key={order._id}
                             className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-xl p-5 hover:border-accent/50 transition-colors cursor-pointer group flex items-center justify-between"
-                            onClick={() => onSelectOrder(order)}
+                            onClick={() => handleSelectOrder(order)}
                         >
                             <div>
                                 <div className="flex items-center gap-3 mb-1">

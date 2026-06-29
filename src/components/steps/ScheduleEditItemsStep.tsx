@@ -1,39 +1,25 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import LineItemRow from '@/components/LineItemRow';
-import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
+import { InvoiceItem } from '@/types/invoice';
 import { isInterstateOrder, normalizeItemTaxForContext, validateTaxesForOrder } from '@/lib/tax';
 import { toast } from 'sonner';
-import { zohoService } from '@/services/zoho';
 import { ordersService } from '@/services/orders';
 
-interface Props {
-    formData: CombinedFormData;
-    updateForm: (data: Partial<CombinedFormData>) => void;
-    onNext: () => void;
-    onPrev: () => void;
-}
+export default function ScheduleEditItemsStep() {
+    const formData = useWizardStore((s) => s.formData);
+    const updateForm = useWizardStore((s) => s.updateForm);
+    const zohoItems = useWizardStore((s) => s.zohoItems);
+    const zohoTaxes = useWizardStore((s) => s.zohoTaxes);
+    const nextStep = useWizardStore((s) => s.nextStep);
+    const prevStep = useWizardStore((s) => s.prevStep);
+    const isZohoLoading = useWizardStore((s) => s.isZohoLoading);
 
-const emptyItem = (): InvoiceItem => ({
-    name: '',
-    description: '',
-    quantity: 1,
-    price: 0,
-    final_price: undefined,
-    tax_id: 'NO_TAX',
-    tax_amount: 0,
-    item_total: 0,
-    cost_price: 0,
-});
-
-export default function ScheduleEditItemsStep({ formData, updateForm, onNext, onPrev }: Props) {
-    const [zohoItems, setZohoItems] = useState<ZohoItem[]>([]);
-    const [zohoTaxes, setZohoTaxes] = useState<ZohoTax[]>([]);
+    const safeZohoTaxes = Array.isArray(zohoTaxes) ? zohoTaxes : [];
     const [loading, setLoading] = useState(true);
-    
-    // Track initial state to skip network call if unchanged
+
     const initialCostPricesRef = useRef<string>('');
 
     useEffect(() => {
@@ -45,34 +31,20 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
     const isInterstate = isInterstateOrder(formData.state);
 
     useEffect(() => {
-        async function loadData() {
-            setLoading(true);
-            try {
-                const [items, taxes] = await Promise.all([
-                    zohoService.getItems(),
-                    zohoService.getTaxes()
-                ]);
-
-                setZohoItems(items as ZohoItem[]);
-                setZohoTaxes(taxes as ZohoTax[]);
-            } catch (err) {
-                console.error("Failed to load catalog data:", err);
-                toast.error("Failed to load Zoho item/tax data.");
-            } finally {
-                setLoading(false);
-            }
+        if (!isZohoLoading && safeZohoTaxes.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLoading(false);
         }
-        loadData();
-    }, []);
+    }, [isZohoLoading, safeZohoTaxes.length]);
 
     const recalcFromFinalPrice = (
         item: InvoiceItem,
         overrides: Partial<InvoiceItem>,
-        taxes: ZohoTax[]
+        taxes: typeof safeZohoTaxes
     ): Partial<InvoiceItem> => {
         const merged = { ...item, ...overrides };
         const qty = Number(merged.quantity) || 0;
-        
+
         let finalPricePerUnit = Number(merged.final_price);
         if (!finalPricePerUnit && finalPricePerUnit !== 0) {
             const taxPerUnit = qty > 0 ? (Number(merged.tax_amount) || 0) / qty : 0;
@@ -111,53 +83,46 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
         const normalized = normalizeItemTaxForContext({
             item: currentItem,
             updates,
-            taxes: zohoTaxes,
+            taxes: safeZohoTaxes,
             isInterstate,
         });
 
         const mergedUpdates = { ...updates, ...normalized };
         const needsRecalc = 'final_price' in mergedUpdates || 'tax_id' in mergedUpdates || 'quantity' in mergedUpdates;
-        
-        const finalUpdates = needsRecalc 
-            ? recalcFromFinalPrice(currentItem, mergedUpdates, zohoTaxes) 
+
+        const finalUpdates = needsRecalc
+            ? recalcFromFinalPrice(currentItem, mergedUpdates, safeZohoTaxes)
             : mergedUpdates;
 
         newItems[index] = { ...currentItem, ...finalUpdates };
         updateForm({ invoice_items: newItems });
     };
 
-    const addItem = () => updateForm({ invoice_items: [...formData.invoice_items, emptyItem()] });
-
     const removeItem = (index: number) => {
         updateForm({ invoice_items: formData.invoice_items.filter((_, i) => i !== index) });
     };
 
-    // Keep taxes normalized if interstate/intrastate mismatch detected, 
-    // and repair any corrupted data from DB (where price is 0 but final_price exists)
     useEffect(() => {
-        if (!zohoTaxes.length || !formData.invoice_items.length) return;
+        if (!safeZohoTaxes.length || !formData.invoice_items.length) return;
 
         let anyChanged = false;
         const updated = formData.invoice_items.map((item) => {
             const normalization = normalizeItemTaxForContext({
                 item,
                 updates: {},
-                taxes: zohoTaxes,
+                taxes: safeZohoTaxes,
                 isInterstate,
             });
 
             let next = { ...item, ...normalization };
             const taxChanged = next.tax_id !== item.tax_id || next.tax_auto_corrected !== item.tax_auto_corrected;
-            
-            // Repair: Calculate missing price or tax_amount if final_price exists
-            // This happens when older/imported orders have incomplete pre-tax prices in DB
-            const needsRepair = next.final_price !== undefined && next.final_price > 0 && 
+
+            const needsRepair = next.final_price !== undefined && next.final_price > 0 &&
                                (next.price === 0 || next.item_total === 0);
 
             if (taxChanged || needsRepair) {
                 if (next.final_price !== undefined) {
-                    // Recalculate price and tax_amount using the existing or corrected tax_id
-                    next = { ...next, ...recalcFromFinalPrice(next, {}, zohoTaxes) };
+                    next = { ...next, ...recalcFromFinalPrice(next, {}, safeZohoTaxes) };
                     anyChanged = true;
                 }
             } else if (taxChanged) {
@@ -171,7 +136,7 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             updateForm({ invoice_items: updated });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isInterstate, zohoTaxes]);
+    }, [isInterstate, safeZohoTaxes]);
 
     const handleNext = async () => {
         if (formData.invoice_items.length === 0) {
@@ -199,7 +164,7 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             }
         }
 
-        const taxIssues = validateTaxesForOrder(formData.invoice_items, zohoTaxes, isInterstate);
+        const taxIssues = validateTaxesForOrder(formData.invoice_items, safeZohoTaxes, isInterstate);
         if (taxIssues.length) {
             taxIssues.forEach((issue) => toast.error(`Item ${issue.index + 1}: ${issue.message}`));
             return;
@@ -207,23 +172,20 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
 
         const currentCostPrices = JSON.stringify(formData.invoice_items.map(it => it.cost_price));
         if (currentCostPrices === initialCostPricesRef.current) {
-            // Unmodified cost prices, skip the network call entirely
-            onNext();
+            nextStep();
             return;
         }
 
         setLoading(true);
         try {
-            // Only send the minimal array of objects with cost_price to save bandwidth and prevent overwriting
             const lightweightItems = formData.invoice_items.map(item => ({ cost_price: item.cost_price }));
             const result = await ordersService.update(formData.orderId!, { invoiceItems: lightweightItems });
             if (!result.success) {
                 throw new Error("Failed to save edited items");
             }
 
-            // Update ref so we don't patch again if user goes back and forward without changing anything
             initialCostPricesRef.current = currentCostPrices;
-            onNext();
+            nextStep();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Error saving items");
             console.error(err);
@@ -234,7 +196,6 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
 
     const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
     const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
-    const shippingCharge = 0; // Delivery is manually added as a line item, so don't double count globally
     const codCharge = formData.include_cod ? 50 : 0;
 
     const finalItemsPrice = subtotal + totalTax;
@@ -244,7 +205,7 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
         ? (finalItemsPrice * discountInput) / 100
         : discountInput;
 
-    const grandTotal = finalItemsPrice - appliedDiscountAmount + shippingCharge + codCharge;
+    const grandTotal = finalItemsPrice - appliedDiscountAmount + codCharge;
 
     if (loading) {
         return (
@@ -271,7 +232,7 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
                         index={index}
                         item={item}
                         zohoItems={zohoItems}
-                        zohoTaxes={zohoTaxes}
+                        zohoTaxes={safeZohoTaxes}
                         isInterstate={isInterstate}
                         onChange={handleItemChange}
                         onRemove={() => removeItem(index)}
@@ -279,18 +240,11 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
                         readOnlyAllExceptCostPrice={true}
                     />
                 ))}
-
-                {/* Adding new items during scheduling is restricted: 
-                <button type="button" className="btn-add-item" onClick={addItem}>
-                    + Add Product/Service
-                </button>
-                */}
             </div>
 
-            {/* Adjusting the total values box to track edited items total */}
             <div className="mt-8 pt-6 border-t border-gray-800 totals-grid">
                 <div className="totals-left"></div>
-                
+
                 <div className="totals-right">
                     <div className="total-row">
                         <span>Items Subtotal (pre-tax)</span>
@@ -315,7 +269,7 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             </div>
 
             <div className="mt-8 flex justify-between">
-                <button className="btn btn-secondary" onClick={onPrev}>
+                <button className="btn btn-secondary" onClick={prevStep}>
                     🡨 Back
                 </button>
                 <button className="btn btn-submit w-auto px-8" onClick={handleNext}>

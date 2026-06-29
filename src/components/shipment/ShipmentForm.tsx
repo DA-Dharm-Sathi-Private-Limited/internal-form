@@ -1,6 +1,7 @@
 import { PlannedShipment } from './types';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
+import { DELHIIVERY_WAREHOUSES } from '@/config/warehouses';
 
 interface Props {
   shipment: PlannedShipment;
@@ -39,7 +40,7 @@ export function ShipmentForm({ shipment, index, onChange, deliveryPartnerOptions
           value={shipment.warehouse}
           onChange={(e) => onChange(shipment.id, { warehouse: e.target.value, vendor: e.target.value })}
         >
-          {['ganpati jaipur', 'jaipur 2', 'Office', 'Noida'].map((w) => (
+          {DELHIIVERY_WAREHOUSES.map((w) => (
             <option key={w} value={w}>{w}</option>
           ))}
         </select>

@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
+import { useWizardStore } from '@/store/wizardStore';
 import { CombinedFormData } from '@/types/wizard';
-import { WAREHOUSE_DETAILS, DelhiveryWarehouse } from '@/config/warehouses';
 import type { PlannedShipment } from '@/components/shipment/types';
 import { isSelfShipment } from '@/components/shipment/types';
 import { ShipmentForm } from '@/components/shipment/ShipmentForm';
@@ -21,13 +21,6 @@ const DELIVERY_PARTNER_OPTIONS = [
   { value: 'DTDC', label: 'DTDC' },
   { value: 'Shadowfax', label: 'Shadowfax' },
 ];
-
-interface Props {
-  formData: CombinedFormData;
-  updateForm: (data: Partial<CombinedFormData>) => void;
-  onNext: () => void;
-  onPrev: () => void;
-}
 
 function defaultShipment(formData: CombinedFormData): PlannedShipment {
   return {
@@ -75,7 +68,12 @@ function applyShipmentUpdate(
   return prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
 }
 
-export default function SchedulePreviewStep({ formData, updateForm, onNext, onPrev }: Props) {
+export default function SchedulePreviewStep() {
+    const formData = useWizardStore((s) => s.formData);
+    const updateForm = useWizardStore((s) => s.updateForm);
+    const nextStep = useWizardStore((s) => s.nextStep);
+    const prevStep = useWizardStore((s) => s.prevStep);
+
   const [plannedShipments, setPlannedShipments] = useState<PlannedShipment[]>(() =>
     formData.plannedShipments && formData.plannedShipments.length > 0
       ? formData.plannedShipments.map((sh) => hydrateShipment(sh as PlannedShipment, formData))
@@ -85,14 +83,20 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const estimateInputs = useMemo(
+    () =>
+      plannedShipments.map((s) => ({
+        id: s.id,
+        shipping_mode: s.shipping_mode,
+        weight: s.weight,
+        payment_mode: s.payment_mode,
+        warehouse: s.warehouse,
+      })),
+    [plannedShipments]
+  );
+
   const { costs: shippingCosts, tats: expectedTats, loading: loadingPreview } = useShipmentEstimates({
-    plannedShipments: plannedShipments.map((s) => ({
-      id: s.id,
-      shipping_mode: s.shipping_mode,
-      weight: s.weight,
-      payment_mode: s.payment_mode,
-      warehouse: s.warehouse,
-    })),
+    plannedShipments: estimateInputs,
     destPincode: formData.pincode,
   });
 
@@ -188,12 +192,10 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
       const createdShipmentsForOrder: CreatedShipment[] = [];
       const allWaybills: string[] = [];
 
-      // Process Delhivery shipments
       const delhiveryShipments = plannedShipments
         .map((sh, i) => ({ sh, i }))
         .filter(({ sh }) => !isSelfShipment(sh) && sh.deliveryPartner !== 'DTDC' && sh.deliveryPartner !== 'Shadowfax');
 
-      // Process Shadowfax shipments (API-integrated)
       const shadowfaxShipments = plannedShipments
         .map((sh, i) => ({ sh, i }))
         .filter(({ sh }) => !isSelfShipment(sh) && sh.deliveryPartner === 'Shadowfax');
@@ -259,7 +261,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         });
       }
 
-      // Process Shadowfax shipments (API auto-create)
       for (const { sh, i } of shadowfaxShipments) {
         const eff = sh.items.filter((it) => it.quantity > 0);
         if (eff.length === 0) continue;
@@ -353,7 +354,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         });
       }
 
-      // Process manual partner shipments (DTDC only)
       for (const sh of plannedShipments.filter((s) => s.deliveryPartner === 'DTDC')) {
         const eff = sh.items.filter((it) => it.quantity > 0);
         if (eff.length === 0) continue;
@@ -369,7 +369,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         });
       }
 
-      // Process self shipments
       plannedShipments.forEach((sh) => {
         if (!isSelfShipment(sh)) return;
         const eff = sh.items.filter((it) => it.quantity > 0);
@@ -380,7 +379,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
           waybill: sh.awb,
           shippingCost: 0,
           warehouse: sh.warehouse || (formData.warehouse as string),
-          paymentMode: sh.payment_mode || 'Prepaid',
           items: eff,
         });
       });
@@ -388,7 +386,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
       if (createdShipmentsForOrder.length === 0)
         throw new Error('No shipment rows defined.');
 
-      // Determine status
       const shippedPerLine = formData.invoice_items.map(() => 0);
       createdShipmentsForOrder.forEach((s) => s.items.forEach((it) => { shippedPerLine[it.lineIndex] += it.quantity; }));
 
@@ -414,7 +411,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
       });
 
       updateForm({ waybill: allWaybills[0], waybills: allWaybills, plannedShipments });
-      onNext();
+      nextStep();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -436,7 +433,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         <h3 className="section-title mb-0">
           <span className="section-icon">🔍</span> Confirm Shipping
         </h3>
-        <button className="btn btn-secondary py-1.5 px-4 text-sm font-semibold" onClick={onPrev} disabled={submitting}>
+        <button className="btn btn-secondary py-1.5 px-4 text-sm font-semibold" onClick={prevStep} disabled={submitting}>
           🡨 Back
         </button>
       </div>
@@ -451,7 +448,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
       <ErrorBox message={errorMsg} onDismiss={() => setErrorMsg('')} />
 
-      {/* Items summary */}
       <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
         <h4 className="text-gray-900 dark:text-accent font-bold mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
           📦 Items in this Order
@@ -492,7 +488,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         </div>
       </div>
 
-      {/* Shipment planner */}
       <div className="mb-6 bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4 mb-4 border-b border-gray-100 dark:border-[#2a2a38] pb-3">
           <h4 className="text-gray-900 dark:text-accent font-bold flex items-center gap-2 text-lg mb-0">
@@ -528,7 +523,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 showPartnerSelector={!isSelfShipment(sh)}
               />
 
-              {/* Self-ship fields */}
               {isSelfShipment(sh) && (
                 <div className="form-grid-2 mt-3">
                   <div className="form-group">
@@ -549,7 +543,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                 </div>
               )}
 
-              {/* Manual AWB for DTDC/Shadowfax */}
               {(sh.deliveryPartner === 'DTDC' || sh.deliveryPartner === 'Shadowfax') && (
                 <div className="form-grid-2 mt-3">
                   <div className="form-group">
@@ -571,7 +564,6 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         </div>
       </div>
 
-      {/* Estimates / Routing */}
       {loadingPreview ? (
         <Spinner text="Calculating shipping estimates & routing..." />
       ) : (

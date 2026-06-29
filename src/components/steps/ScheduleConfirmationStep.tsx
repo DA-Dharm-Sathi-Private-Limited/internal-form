@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import { downloadDelhiveryLabel } from '@/lib/printLabel';
 import { delhiveryService } from '@/services/delhivery';
 
 interface Props {
-  formData: CombinedFormData;
   onReset: () => void;
 }
 
-export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
+export default function ScheduleConfirmationStep({ onReset }: Props) {
+  const formData = useWizardStore((s) => s.formData);
   const [downloadingLabel, setDownloadingLabel] = useState(false);
   const [creatingPickup, setCreatingPickup] = useState(false);
   const [pickupRequested, setPickupRequested] = useState(false);

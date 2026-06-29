@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import { INDIAN_STATES, INDIAN_STATE_NAMES, SALESPERSONS, Customer, Salesperson } from '@/types/invoice';
 import CustomerSearch from '../CustomerSearch';
 import stateCodesData from '@/data/state-codes.json';
@@ -10,13 +10,11 @@ import { customerStepSchema } from '@/lib/validation';
 import { delhiveryService } from '@/services/delhivery';
 import { customerService } from '@/services/customers';
 
-interface Props {
-  formData: CombinedFormData;
-  updateForm: (data: Partial<CombinedFormData>) => void;
-  onNext: () => void;
-}
+export default function CustomerStep() {
+  const formData = useWizardStore((s) => s.formData);
+  const updateForm = useWizardStore((s) => s.updateForm);
+  const nextStep = useWizardStore((s) => s.nextStep);
 
-export default function CustomerStep({ formData, updateForm, onNext }: Props) {
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [needsAddressUpdate, setNeedsAddressUpdate] = useState(false);
   const [savingToZoho, setSavingToZoho] = useState(false);
@@ -104,7 +102,7 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
       }
     }
 
-    onNext();
+    nextStep();
   };
 
   return (

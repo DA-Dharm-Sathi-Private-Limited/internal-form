@@ -1,31 +1,23 @@
-'use client'
+"use client";
 
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export default function AuthLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isInitialized } = useAuthStore();
   const router = useRouter();
 
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, isInitialized]);
 
-  useEffect(()=>{
-      if(isAuthenticated){
-        router.push('/')
-      }
-
-  },[isAuthenticated])
-
-  return (
-   <>
-   
-   {
-    children
-   }</>
-  );
+  return <>{children}</>;
 }

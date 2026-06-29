@@ -1,21 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import LineItemRow from '../LineItemRow';
-import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
+import { InvoiceItem, ZohoTax } from '@/types/invoice';
 import { toast } from 'sonner';
 import { invoiceItemsStepSchema } from '@/lib/validation';
 import { isInterstateOrder, normalizeItemTaxForContext, validateTaxesForOrder } from '@/lib/tax';
-import { zohoService } from '@/services/zoho';
-
-interface Props {
-    formData: CombinedFormData;
-    updateForm: (data: Partial<CombinedFormData>) => void;
-    onNext: () => void;
-    onPrev: () => void;
-}
 
 const emptyItem = (): InvoiceItem => ({
     name: '',
@@ -29,35 +21,24 @@ const emptyItem = (): InvoiceItem => ({
     cost_price: 0,
 });
 
-export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev }: Props) {
-    const [zohoItems, setZohoItems] = useState<ZohoItem[]>([]);
-    const [zohoTaxes, setZohoTaxes] = useState<ZohoTax[]>([]);
+export default function InvoiceItemsStep() {
+    const formData = useWizardStore((s) => s.formData);
+    const updateForm = useWizardStore((s) => s.updateForm);
+    const zohoItems = useWizardStore((s) => s.zohoItems);
+    const zohoTaxes = useWizardStore((s) => s.zohoTaxes);
+    const nextStep = useWizardStore((s) => s.nextStep);
+    const prevStep = useWizardStore((s) => s.prevStep);
 
-    const isInterstate = isInterstateOrder(formData.state);
+    if (!formData) {
+        return <div className="p-8 text-center text-gray-400">Loading form data...</div>;
+    }
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const [items, taxes] = await Promise.all([
-                    zohoService.getItems(),
-                    zohoService.getTaxes(),
-                ]);
-                setZohoItems(items as ZohoItem[]);
-                setZohoTaxes(taxes as ZohoTax[]);
-            } catch (err) {
-                console.error("Failed to load zoho data:", err);
-            }
-        }
-        loadData();
-    }, []);
+    const safeZohoTaxes = Array.isArray(zohoTaxes) ? zohoTaxes : [];
 
-    /**
-     * Reverse-calculates pre-tax rate and tax amount from the user-supplied
-     * tax-inclusive final price.
-     *
-     * Formula: pre_tax_rate = final_price / (1 + tax_pct / 100)
-     *          tax_amount    = final_price - pre_tax_rate
-     */
+    const formState = formData.state || '';
+    const isInterstate = isInterstateOrder(formState);
+    const items = formData.invoice_items || [];
+
     const recalcFromFinalPrice = (
         item: InvoiceItem,
         overrides: Partial<InvoiceItem>,
@@ -81,7 +62,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             }
         }
 
-        const itemTotal = preTaxRate * qty; // pre-tax subtotal for this line
+        const itemTotal = preTaxRate * qty;
 
         return {
             ...overrides,
@@ -92,18 +73,17 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
     };
 
     const handleItemChange = (index: number, updates: Partial<InvoiceItem>) => {
-        const newItems = [...formData.invoice_items];
+        const newItems = [...items];
         const currentItem = newItems[index];
         const normalized = normalizeItemTaxForContext({
             item: currentItem,
             updates,
-            taxes: zohoTaxes,
+            taxes: safeZohoTaxes,
             isInterstate,
         });
 
         const mergedUpdates: Partial<InvoiceItem> = { ...updates, ...normalized };
 
-        // Determine if the update involves anything that affects the reverse calculation
         const needsRecalc =
             'final_price' in mergedUpdates ||
             'tax_id' in mergedUpdates ||
@@ -112,7 +92,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
         let finalUpdates: Partial<InvoiceItem> = mergedUpdates;
 
         if (needsRecalc) {
-            finalUpdates = recalcFromFinalPrice(currentItem, mergedUpdates, zohoTaxes);
+            finalUpdates = recalcFromFinalPrice(currentItem, mergedUpdates, safeZohoTaxes);
         }
 
         newItems[index] = { ...currentItem, ...finalUpdates };
@@ -120,15 +100,15 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
     };
 
     const addItem = () => {
-        updateForm({ invoice_items: [...formData.invoice_items, emptyItem()] });
+        updateForm({ invoice_items: [...items, emptyItem()] });
     };
 
     const removeItem = (index: number) => {
-        updateForm({ invoice_items: formData.invoice_items.filter((_, i) => i !== index) });
+        updateForm({ invoice_items: items.filter((_, i) => i !== index) });
     };
 
-    const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
-    const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
+    const subtotal = items.reduce((acc, item) => acc + (item.item_total || 0), 0);
+    const totalTax = items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
     const shippingCharge = formData.include_shipping ? 100 : 0;
     const codCharge = formData.include_cod ? 50 : 0;
 
@@ -141,31 +121,28 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
 
     const grandTotal = finalItemsPrice - appliedDiscountAmount + shippingCharge + codCharge;
 
-    // Add initial item if empty
     useEffect(() => {
-        if (formData.invoice_items.length === 0) {
+        if (items.length === 0) {
             addItem();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.invoice_items.length]);
+    }, [items.length]);
 
-    // When the order flips between inter/intra state or taxes load, normalize taxes on all items.
     useEffect(() => {
-        if (!zohoTaxes.length || !formData.invoice_items.length) return;
+        if (!safeZohoTaxes.length || !items.length) return;
 
-        const updated = formData.invoice_items.map((item) => {
+        const updated = items.map((item) => {
             const normalization = normalizeItemTaxForContext({
                 item,
                 updates: {},
-                taxes: zohoTaxes,
+                taxes: safeZohoTaxes,
                 isInterstate,
             });
 
             let next: InvoiceItem = { ...item, ...normalization };
 
-            // If tax changed and we have a final_price, recompute amounts
             if (normalization.tax_id && normalization.tax_id !== item.tax_id && item.final_price) {
-                const recalc = recalcFromFinalPrice(item, { tax_id: normalization.tax_id }, zohoTaxes);
+                const recalc = recalcFromFinalPrice(item, { tax_id: normalization.tax_id }, safeZohoTaxes);
                 next = { ...next, ...recalc };
             }
 
@@ -173,7 +150,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
         });
 
         const changed = updated.some((item, idx) => {
-            const prev = formData.invoice_items[idx];
+            const prev = items[idx];
             return (
                 prev.tax_id !== item.tax_id ||
                 prev.tax_auto_corrected !== item.tax_auto_corrected ||
@@ -185,14 +162,13 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             updateForm({ invoice_items: updated });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isInterstate, zohoTaxes]);
+    }, [isInterstate, safeZohoTaxes]);
 
     const handleNext = () => {
         const result = invoiceItemsStepSchema.safeParse(formData);
         if (!result.success) {
             const issues = result.error.issues;
             issues.forEach((issue) => {
-                // path looks like ["invoice_items", 0, "name"]
                 const path = issue.path;
                 let label = issue.message;
 
@@ -212,8 +188,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             return;
         }
 
-        // Additional safety: verify that no line violates interstate/intrastate GST rules.
-        const taxIssues = validateTaxesForOrder(formData.invoice_items, zohoTaxes, isInterstate);
+        const taxIssues = validateTaxesForOrder(formData.invoice_items, safeZohoTaxes, isInterstate);
         if (taxIssues.length) {
             taxIssues.forEach((issue) => {
                 const itemNum = issue.index + 1;
@@ -222,7 +197,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             return;
         }
 
-        onNext();
+        nextStep();
     };
 
     return (
@@ -232,17 +207,17 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             </h3>
 
             <div className="line-items-container">
-                {formData.invoice_items.map((item, index) => (
+                {items.map((item, index) => (
                     <LineItemRow
                         key={index}
                         index={index}
                         item={item}
                         zohoItems={zohoItems}
-                        zohoTaxes={zohoTaxes}
+                        zohoTaxes={safeZohoTaxes}
                         isInterstate={isInterstate}
                         onChange={handleItemChange}
                         onRemove={() => removeItem(index)}
-                        canRemove={formData.invoice_items.length > 1}
+                        canRemove={items.length > 1}
                     />
                 ))}
 
@@ -374,7 +349,7 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
             </div>
 
             <div className="mt-8 flex justify-between">
-                <button className="btn btn-secondary" onClick={onPrev}>
+                <button className="btn btn-secondary" onClick={prevStep}>
                     🡨 Back
                 </button>
                 <button

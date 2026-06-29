@@ -1,26 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { CombinedFormData } from '@/types/wizard';
+import { useWizardStore } from '@/store/wizardStore';
 import stateCodesData from '@/data/state-codes.json';
 import { isInterstateOrder, get18PctTaxId } from '@/lib/tax';
 import { zohoService } from '@/services/zoho';
 import { ordersService } from '@/services/orders';
 
-interface Props {
-    formData: CombinedFormData;
-    updateForm: (data: Partial<CombinedFormData>) => void;
-    onNext: () => void;
-    onPrev: () => void;
-}
+export default function OrderPreviewStep() {
+    const formData = useWizardStore((s) => s.formData);
+    const updateForm = useWizardStore((s) => s.updateForm);
+    const nextStep = useWizardStore((s) => s.nextStep);
+    const prevStep = useWizardStore((s) => s.prevStep);
 
-export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const isInterstate = isInterstateOrder(formData.state);
+    if (!formData) {
+        return <div className="p-8 text-center text-gray-400">Loading form data...</div>;
+    }
 
-    /** Build a shipping/COD line item with 18% GST inclusive pricing. */
+    const isInterstate = isInterstateOrder(formData.state);
+    const items = formData.invoice_items || [];
+
     const buildChargeItem = (name: string, finalPrice: number, description: string) => {
         const taxId = get18PctTaxId(isInterstate);
         const preTaxRate = taxId !== 'NO_TAX' ? finalPrice / 1.18 : finalPrice;
@@ -35,27 +37,27 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             tax_amount: taxAmount,
             item_total: preTaxRate,
             hsn_or_sac: '996812',
-            zoho_item_id: '__system__', // tells invoice route to skip catalog creation
+            zoho_item_id: '__system__',
             cost_price: 0,
         };
     };
 
-    const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
-    const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
-    const shippingCharge = formData.include_shipping ? 100 : 0;
-    const codCharge = formData.include_cod ? 50 : 0;
+    const subtotal = items.reduce((acc, item) => acc + (item.item_total || 0), 0);
+    const totalTax = items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
+    const shippingCharge = formData?.include_shipping ? 100 : 0;
+    const codCharge = formData?.include_cod ? 50 : 0;
     const combinedShippingCharge = shippingCharge + codCharge;
 
     const finalItemsPrice = subtotal + totalTax;
-    const discountInput = Number(formData.discount) || 0;
-    const discountFormat = formData.discount_format_type || 'fixed';
+    const discountInput = Number(formData?.discount) || 0;
+    const discountFormat = formData?.discount_format_type || 'fixed';
     const appliedDiscountAmount = discountFormat === 'percentage'
         ? (finalItemsPrice * discountInput) / 100
         : discountInput;
 
     const grandTotal = finalItemsPrice - appliedDiscountAmount + combinedShippingCharge;
 
-    const finalInvoiceItems = [...formData.invoice_items];
+    const finalInvoiceItems = [...items];
 
     if (shippingCharge > 0) {
         finalInvoiceItems.push(buildChargeItem('Delivery Charges', 100, 'Delivery and handling'));
@@ -71,20 +73,18 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
         setErrorMsg('');
 
         try {
-            // 1. Create Zoho Invoice
             const invoicePayload = {
                 customer_id: formData.customer_id,
                 date: formData.date,
                 reference_number: formData.reference_number || undefined,
                 gst_treatment: formData.gst_treatment,
                 salesperson_name: formData.salesperson_name || undefined,
-                place_of_supply: stateCodesData.find(s => s.name === formData.state)?.code || formData.state,
+                place_of_supply: stateCodesData.find(s => s.name === formData?.state)?.code || formData?.state || '',
                 invoice_items: finalInvoiceItems,
                 discount: appliedDiscountAmount > 0 ? appliedDiscountAmount : undefined,
                 discount_type: 'entity_level',
                 is_discount_before_tax: false,
                 notes: formData.notes,
-                // Send phone as a custom field on the invoice
                 custom_fields: [
                     {
                         label: 'Phone Number',
@@ -104,7 +104,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             const createdInvoiceNumber = invoice.invoice_number as string;
             const zohoInvoiceTotal = Number(invoice.total) || 0;
 
-            // 2. Save Order to Database
             const orderPayload = {
                 zohoInvoiceId: createdInvoiceId,
                 orderId: createdInvoiceNumber,
@@ -123,9 +122,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                     astrologerName: formData.astrologer_name,
                     astrologerNumber: formData.astrologer_number,
                 },
-                // Persist the raw UI items with additional delivery items, including optional descriptions,
-                // so the schedule-order wizard can see them even though we
-                // no longer send description to Zoho.
                 invoiceItems: finalInvoiceItems,
                 invoiceTotal: zohoInvoiceTotal || grandTotal,
                 invoiceDate: formData.date,
@@ -142,13 +138,12 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 throw new Error(`Invoice created in Zoho (#${createdInvoiceNumber}), but failed to save to database: ${orderResult.error || 'Unknown DB error'}. Please contact admin.`);
             }
 
-            // 3. Update state and proceed
             updateForm({
                 invoiceId: createdInvoiceId,
                 orderId: createdInvoiceNumber,
             });
 
-            onNext();
+            nextStep();
 
         } catch (err) {
             setErrorMsg(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -172,7 +167,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             )}
 
             <div className="w-full">
-                {/* Invoice Details */}
                 <div className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-6 shadow-sm">
                     <h4 className="text-gray-900 dark:text-accent font-bold mb-5 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
                         📄 Invoice Summary
@@ -182,13 +176,13 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                         <div className="bg-gray-50 dark:bg-[#1c1c28] p-3.5 rounded-xl border border-gray-100 dark:border-transparent flex justify-between items-center">
                             <span className="text-gray-500 dark:text-gray-400 font-medium">Customer</span>
                             <strong className="text-gray-900 dark:text-white font-semibold flex items-center gap-1.5">
-                                👤 {formData.customer_name}
+                                👤 {formData?.customer_name}
                             </strong>
                         </div>
                         <div className="space-y-2 px-1 py-1">
-                            <p className="flex items-start justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Address</span> <span className="text-right max-w-[200px] leading-tight">{formData.address}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Location</span> <span className="text-right font-medium">{formData.city}, {formData.state} {formData.pincode}</span></p>
-                            <p className="flex justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Phone</span> <span className="text-right">{formData.country_code} {formData.phone}</span></p>
+                            <p className="flex items-start justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Address</span> <span className="text-right max-w-[200px] leading-tight">{formData?.address}</span></p>
+                            <p className="flex justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Location</span> <span className="text-right font-medium">{formData?.city}, {formData?.state} {formData?.pincode}</span></p>
+                            <p className="flex justify-between"><span className="text-gray-500 dark:text-gray-400 font-medium">Phone</span> <span className="text-right">{formData?.country_code} {formData?.phone}</span></p>
                         </div>
                     </div>
 
@@ -237,7 +231,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                         )}
                         {appliedDiscountAmount > 0 && (
                             <div className="flex justify-between text-green-600 dark:text-green-500 text-sm pb-3 px-2 font-medium">
-                                <span>Discount {formData.discount_format_type === 'percentage' ? `(${formData.discount}%)` : ''}</span>
+                                <span>Discount {formData?.discount_format_type === 'percentage' ? `(${formData?.discount}%)` : ''}</span>
                                 <span>-₹{appliedDiscountAmount.toFixed(2)}</span>
                             </div>
                         )}
@@ -252,7 +246,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
 
 
             <div className="mt-8 flex justify-between">
-                <button className="btn btn-secondary" onClick={onPrev} disabled={submitting}>
+                <button className="btn btn-secondary" onClick={prevStep} disabled={submitting}>
                     🡨 Back
                 </button>
                 <button
