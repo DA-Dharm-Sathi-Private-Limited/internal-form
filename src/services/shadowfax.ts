@@ -48,4 +48,11 @@ export const shadowfaxService = {
       payload
     );
   },
+
+  download(start: string, end: string) {
+    return api.get<{ success: boolean; files?: { filename: string; content: string }[]; error?: string }>(
+      '/api/shadowfax/download',
+      { start, end }
+    );
+  },
 };

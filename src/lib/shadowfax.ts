@@ -17,6 +17,7 @@ function sfHeaders() {
   return {
     Authorization: `Token ${getShadowfaxToken()}`,
     'Content-Type': 'application/json',
+    "Accept": "application/json",
   };
 }
 
@@ -55,7 +56,10 @@ export async function generateAWB(count: number = 1) {
     headers: sfHeaders(),
     body: JSON.stringify({ count }),
   });
+  
   const data = await res.json();
+
+  console.log("responce",data)
   return { status: res.status, data };
 }
 
