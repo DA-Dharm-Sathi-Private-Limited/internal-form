@@ -1,12 +1,14 @@
 import { api } from './api';
 
 export const zohoService = {
-  getItems() {
-    return api.get<unknown[]>('/api/zoho/items');
+  async getItems() {
+    const res = await api.get<{ items: unknown[] }>('/api/zoho/items');
+    return res.items || [];
   },
 
-  getTaxes() {
-    return api.get<unknown[]>('/api/zoho/taxes');
+  async getTaxes() {
+    const res = await api.get<{ taxes: unknown[] }>('/api/zoho/taxes');
+    return res.taxes || [];
   },
 
   getSettings() {
