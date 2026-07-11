@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 import { CombinedFormData } from '@/types/wizard';
 import LineItemRow from '../LineItemRow';
+import DiscountEditor from '../DiscountEditor';
 import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
 import { toast } from 'sonner';
 import { invoiceItemsStepSchema } from '@/lib/validation';
@@ -278,43 +279,13 @@ export default function InvoiceItemsStep({ formData, updateForm, onNext, onPrev 
                         <span>Final Price (incl. tax)</span>
                         <span>₹{finalItemsPrice.toFixed(2)}</span>
                     </div>
-                    <div className="total-row items-start mt-2 border-t border-gray-100 dark:border-[#2a2a38] pt-3 pb-2">
-                        <div className="flex flex-col gap-2">
-                            <span className="text-gray-700 dark:text-gray-300">Discount</span>
-                            <div className="flex gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() => updateForm({ discount_format_type: 'percentage' })}
-                                    className={`btn-toggle ${formData.discount_format_type === 'percentage' ? 'active' : ''}`}
-                                >%</button>
-                                <button
-                                    type="button"
-                                    onClick={() => updateForm({ discount_format_type: 'fixed' })}
-                                    className={`btn-toggle ${formData.discount_format_type === 'fixed' || !formData.discount_format_type ? 'active' : ''}`}
-                                >₹</button>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    className="form-input no-spinner w-32 text-right py-1 pr-8"
-                                    value={formData.discount}
-                                    inputMode="decimal"
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    onChange={(e) => updateForm({ discount: e.target.value })}
-                                    placeholder="0.00"
-                                    step="0.01"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
-                                    {(formData.discount_format_type === 'percentage') ? '%' : '₹'}
-                                </span>
-                            </div>
-                            {formData.discount_format_type === 'percentage' && appliedDiscountAmount > 0 && (
-                                <span className="text-xs text-green-600 dark:text-green-500 font-medium">-₹{appliedDiscountAmount.toFixed(2)}</span>
-                            )}
-                        </div>
-                    </div>
+                    <DiscountEditor
+                        discount={formData.discount}
+                        discountFormatType={formData.discount_format_type || 'fixed'}
+                        appliedDiscountAmount={appliedDiscountAmount}
+                        onDiscountChange={(value) => updateForm({ discount: value })}
+                        onFormatTypeChange={(type) => updateForm({ discount_format_type: type })}
+                    />
 
                     <div className="total-row items-center mt-2">
                         <label className="flex items-center gap-2 cursor-pointer cursor-checkbox">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import LineItemRow from '@/components/LineItemRow';
+import DiscountEditor from '@/components/DiscountEditor';
 import OrderMetadata from '@/components/OrderMetadata';
 import { InvoiceItem, ZohoItem, ZohoTax } from '@/types/invoice';
 import { isInterstateOrder, normalizeItemTaxForContext, validateTaxesForOrder } from '@/lib/tax';
@@ -54,6 +55,8 @@ export default function EditInvoicePage() {
   const [zohoItems, setZohoItems] = useState<ZohoItem[]>([]);
   const [zohoTaxes, setZohoTaxes] = useState<ZohoTax[]>([]);
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [discount, setDiscount] = useState('');
+  const [discountFormatType, setDiscountFormatType] = useState<'percentage' | 'fixed'>('fixed');
   const [saving, setSaving] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [savedSuccessfully, setSavedSuccessfully] = useState(false);
@@ -84,6 +87,8 @@ export default function EditInvoicePage() {
     setOrder(null);
     setItems([]);
     setSavedSuccessfully(false);
+    setDiscount('');
+    setDiscountFormatType('fixed');
     try {
       const data = await ordersService.get(q) as OrderResponse;
       if (!data.success) throw new Error(data.error || 'Failed to fetch order');
@@ -91,6 +96,17 @@ export default function EditInvoicePage() {
       if (!ord) throw new Error('Order not found');
       setOrder(ord);
       setItems(((ord.invoiceItems as unknown[]) || []).map(mapDbItemToInvoiceItem));
+
+      // Hydrate discount from DB / Zoho (handles legacy orders)
+      try {
+        const discountData = await zohoService.getInvoiceDiscount(ord.orderId as string) as any;
+        const discountVal = Number(discountData?.discount) || 0;
+        if (discountVal > 0) {
+          setDiscount(String(discountVal));
+          setDiscountFormatType('fixed'); // Zoho stores resolved ₹ amount
+        }
+      } catch { /* non-fatal — discount stays at 0 */ }
+
       toast.success(`Order ${ord.orderId} loaded successfully`);
     } catch (err: any) {
       toast.error(err.message || 'Error fetching order details');
@@ -120,7 +136,12 @@ export default function EditInvoicePage() {
 
   const subtotal = items.reduce((acc, item) => acc + (item.item_total || 0), 0);
   const totalTax = items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
-  const grandTotal = subtotal + totalTax;
+  const finalItemsPrice = subtotal + totalTax;
+  const discountInput = Number(discount) || 0;
+  const appliedDiscountAmount = discountFormatType === 'percentage'
+    ? (finalItemsPrice * discountInput) / 100
+    : discountInput;
+  const grandTotal = finalItemsPrice - appliedDiscountAmount;
 
   const handleSave = async () => {
     if (!order) return;
@@ -139,7 +160,12 @@ export default function EditInvoicePage() {
 
     setSaving(true);
     try {
-      const data = await zohoService.updateInvoice(order.orderId, { invoice_items: items }) as Record<string, unknown>;
+      const data = await zohoService.updateInvoice(order.orderId, {
+        invoice_items: items,
+        discount: appliedDiscountAmount > 0 ? appliedDiscountAmount : 0,
+        discount_type: 'entity_level',
+        is_discount_before_tax: false,
+      }) as Record<string, unknown>;
       if (!data.success) throw new Error((data as any).error || 'Failed to update invoice');
       toast.success('Invoice replaced & synced in Zoho!');
       setOrder(data.order);
@@ -232,6 +258,16 @@ export default function EditInvoicePage() {
                   {totalTax > 0 && (
                     <div className="total-row"><span>Total Tax</span><span>₹{totalTax.toFixed(2)}</span></div>
                   )}
+                  <div className="total-row font-medium text-gray-700 dark:text-gray-300">
+                    <span>Final Price (incl. tax)</span><span>₹{finalItemsPrice.toFixed(2)}</span>
+                  </div>
+                  <DiscountEditor
+                    discount={discount}
+                    discountFormatType={discountFormatType}
+                    appliedDiscountAmount={appliedDiscountAmount}
+                    onDiscountChange={(v) => { setDiscount(v); setSavedSuccessfully(false); }}
+                    onFormatTypeChange={(t) => { setDiscountFormatType(t); setSavedSuccessfully(false); }}
+                  />
                   <div className="total-row total-grand"><span>Invoice Total</span><span>₹{grandTotal.toFixed(2)}</span></div>
 
                   <div className="form-submit-section mt-6 flex flex-col gap-3">

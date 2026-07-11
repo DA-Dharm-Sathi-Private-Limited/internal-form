@@ -26,6 +26,11 @@ export const zohoService = {
     return api.put<Record<string, unknown>>(`/api/invoices/${id}`, payload);
   },
 
+  /** Fetches discount metadata for the given order (DB first, Zoho fallback). */
+  getInvoiceDiscount(orderId: string) {
+    return api.get<{ discount: number; discount_type: string; is_discount_before_tax: boolean }>(`/api/invoices/${orderId}`);
+  },
+
   recordPayment(payload: Record<string, unknown>) {
     return api.post<Record<string, unknown>>('/api/payments', payload);
   },

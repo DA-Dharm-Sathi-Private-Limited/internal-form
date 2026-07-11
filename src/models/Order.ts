@@ -61,6 +61,20 @@ const OrderSchema = new mongoose.Schema(
             type: Number,
             default: null,
         },
+        // Entity-level discount applied to the invoice.
+        discount: {
+            type: Number,
+            default: 0,
+        },
+        discountType: {
+            type: String,
+            enum: ['entity_level', 'item_level'],
+            default: 'entity_level',
+        },
+        isDiscountBeforeTax: {
+            type: Boolean,
+            default: false,
+        },
         invoiceDate: {
             type: Date,
             default: Date.now,
