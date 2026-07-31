@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchCustomers, createCustomer } from '@/lib/zoho';
+import { searchCustomers, createCustomer, sanitizeZohoAddress } from '@/lib/zoho';
 import { withError, fail } from '@/lib/api-handler';
 
 export const GET = withError(async (request: NextRequest) => {
@@ -32,11 +32,11 @@ export const POST = withError(async (request: NextRequest) => {
   if (body.gst_treatment) payload.gst_treatment = body.gst_treatment;
   if (body.place_of_contact) payload.place_of_contact = body.place_of_contact;
   if (body.billing_address) {
-    payload.billing_address = {
+    payload.billing_address = sanitizeZohoAddress({
       ...body.billing_address,
       street: body.billing_address.street || body.billing_address.address || '',
       attention: body.billing_address.attention || body.display_name || '',
-    };
+    });
   }
 
   if (body.phone) {

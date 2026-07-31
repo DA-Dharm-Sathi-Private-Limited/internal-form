@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createInvoice, createZohoItem } from '@/lib/zoho';
+import { createInvoice, createZohoItem, sanitizeZohoAddress } from '@/lib/zoho';
 import { getCorrectTaxId } from '@/lib/tax';
 import { withError, fail } from '@/lib/api-handler';
 
@@ -99,8 +99,8 @@ export const POST = withError(async (request: NextRequest) => {
     invoice_items: cleanItems,
     };
 
-  if (body.billing_address) payload.billing_address = body.billing_address;
-  if (body.shipping_address) payload.shipping_address = body.shipping_address;
+  if (body.billing_address) payload.billing_address = sanitizeZohoAddress(body.billing_address);
+  if (body.shipping_address) payload.shipping_address = sanitizeZohoAddress(body.shipping_address);
 
   if (body.reference_number) payload.reference_number = body.reference_number;
   if (body.gst_treatment) payload.gst_treatment = body.gst_treatment;

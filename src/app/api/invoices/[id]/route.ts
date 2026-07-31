@@ -7,6 +7,7 @@ import {
   voidInvoice,
   deleteInvoice,
   fetchTaxes,
+  sanitizeZohoAddress,
 } from '@/lib/zoho';
 import { getCorrectTaxId, isInterstateOrder } from '@/lib/tax';
 import { withDb, success, fail } from '@/lib/api-handler';
@@ -332,8 +333,9 @@ async function createReplacementInvoice(
     notes: 'Updated via Edit Invoice.',
   };
   if (opts.address) {
-    payload.billing_address = opts.address;
-    payload.shipping_address = opts.address;
+    const sanitized = sanitizeZohoAddress(opts.address);
+    payload.billing_address = sanitized;
+    payload.shipping_address = sanitized;
   }
   if (opts.salespersonName) payload.salesperson_name = opts.salespersonName;
   if (opts.discount && opts.discount > 0) {

@@ -511,3 +511,41 @@ export async function fetchInvoiceSettings() {
     const data = await res.json();
     return { status: res.status, data: data.invoice_settings || {} };
 }
+
+/**
+ * Sanitizes and splits address lines to comply with Zoho Billing's 100-character limit per address field.
+ */
+export function sanitizeZohoAddress(addr: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+    if (!addr || typeof addr !== 'object') return addr;
+
+    const cleaned: Record<string, unknown> = { ...addr };
+
+    if (typeof cleaned.attention === 'string' && cleaned.attention.length > 100) {
+        cleaned.attention = cleaned.attention.slice(0, 100);
+    }
+
+    const rawStreet = String(cleaned.street || cleaned.address || '');
+    if (rawStreet.length > 100) {
+        let breakIndex = rawStreet.lastIndexOf(' ', 100);
+        if (breakIndex < 20) breakIndex = 100;
+
+        cleaned.street = rawStreet.slice(0, breakIndex).trim();
+        const remainder = rawStreet.slice(breakIndex).trim();
+        if (remainder) {
+            const existingStreet2 = String(cleaned.street2 || cleaned.address2 || '');
+            cleaned.street2 = existingStreet2
+                ? `${remainder}, ${existingStreet2}`.slice(0, 100)
+                : remainder.slice(0, 100);
+        }
+    }
+
+    if (typeof cleaned.city === 'string' && cleaned.city.length > 100) {
+        cleaned.city = cleaned.city.slice(0, 100);
+    }
+    if (typeof cleaned.state === 'string' && cleaned.state.length > 100) {
+        cleaned.state = cleaned.state.slice(0, 100);
+    }
+
+    return cleaned;
+}
+
