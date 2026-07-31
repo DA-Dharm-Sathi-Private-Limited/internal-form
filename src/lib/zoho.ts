@@ -534,58 +534,36 @@ export async function fetchInvoiceSettings() {
 export function sanitizeZohoAddress(addr: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
     if (!addr || typeof addr !== 'object') return addr;
 
-    const cleaned: Record<string, unknown> = { ...addr };
-
-    // 1. Ensure attention is <= 95 chars
-    if (typeof cleaned.attention === 'string' && cleaned.attention.length > 95) {
-        cleaned.attention = cleaned.attention.slice(0, 95);
-    }
-
-    // 2. Safely split street / address across street and street2 (and overwrite BOTH address and street properties!)
-    const rawLine1 = String(cleaned.street || cleaned.address || '');
-    const rawLine2 = String(cleaned.street2 || cleaned.address2 || '');
+    const rawLine1 = String(addr.address || addr.street || '');
+    const rawLine2 = String(addr.street2 || addr.address2 || '');
     const combined = [rawLine1, rawLine2].filter(Boolean).join(', ');
 
-    if (combined.length > 95) {
-        let breakIndex = combined.lastIndexOf(' ', 95);
-        if (breakIndex < 20) breakIndex = 95;
+    let address = '';
+    let street2 = '';
 
-        const line1 = combined.slice(0, breakIndex).trim();
-        const line2 = combined.slice(breakIndex).trim().slice(0, 95);
-
-        cleaned.street = line1;
-        cleaned.address = line1;
-        if (line2) {
-            cleaned.street2 = line2;
-            cleaned.address2 = line2;
-        } else {
-            delete cleaned.street2;
-            delete cleaned.address2;
-        }
+    if (combined.length > 90) {
+        let breakIdx = combined.lastIndexOf(' ', 90);
+        if (breakIdx < 20) breakIdx = 90;
+        address = combined.slice(0, breakIdx).trim();
+        street2 = combined.slice(breakIdx).trim().slice(0, 90);
     } else {
-        if (rawLine1.length > 95) {
-            cleaned.street = rawLine1.slice(0, 95);
-            cleaned.address = rawLine1.slice(0, 95);
-        } else if (rawLine1) {
-            cleaned.street = rawLine1;
-            cleaned.address = rawLine1;
-        }
-        if (rawLine2.length > 95) {
-            cleaned.street2 = rawLine2.slice(0, 95);
-            cleaned.address2 = rawLine2.slice(0, 95);
-        } else if (rawLine2) {
-            cleaned.street2 = rawLine2;
-            cleaned.address2 = rawLine2;
-        }
+        address = rawLine1.slice(0, 90);
+        street2 = rawLine2.slice(0, 90);
     }
 
-    // 3. Ensure city, state, country, zip are <= 95 characters
-    for (const key of ['city', 'state', 'country', 'zip', 'pincode', 'phone', 'fax']) {
-        if (typeof cleaned[key] === 'string' && (cleaned[key] as string).length > 95) {
-            cleaned[key] = (cleaned[key] as string).slice(0, 95);
-        }
-    }
+    const clean: Record<string, unknown> = {};
+    if (address) clean.address = address;
+    if (street2) clean.street2 = street2;
 
-    return cleaned;
+    if (addr.attention) clean.attention = String(addr.attention).slice(0, 90);
+    if (addr.city) clean.city = String(addr.city).slice(0, 90);
+    if (addr.state) clean.state = String(addr.state).slice(0, 90);
+    if (addr.state_code) clean.state_code = String(addr.state_code).slice(0, 50);
+    if (addr.zip || addr.pincode) clean.zip = String(addr.zip || addr.pincode).slice(0, 50);
+    if (addr.country) clean.country = String(addr.country).slice(0, 90);
+    if (addr.phone) clean.phone = String(addr.phone).slice(0, 50);
+    if (addr.fax) clean.fax = String(addr.fax).slice(0, 50);
+
+    return clean;
 }
 

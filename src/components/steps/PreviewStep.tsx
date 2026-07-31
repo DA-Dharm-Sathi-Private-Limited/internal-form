@@ -124,13 +124,15 @@ export default function PreviewStep({ formData, updateForm, onNext, onPrev }: Pr
 
       const placeOfSupply = stateCodesData.find(s => s.name === formData.state)?.code || formData.state;
 
+      const rawAddr = String(formData.address || '');
       const addressPayload = {
-        attention: formData.customer_name || undefined,
-        street: formData.address || undefined,
-        city: formData.city || undefined,
-        state: formData.state || undefined,
-        zip: formData.pincode || undefined,
-        country: formData.country || 'India',
+        attention: formData.customer_name ? String(formData.customer_name).slice(0, 90) : undefined,
+        address: rawAddr ? rawAddr.slice(0, 90) : undefined,
+        street2: rawAddr.length > 90 ? rawAddr.slice(90, 180) : undefined,
+        city: formData.city ? String(formData.city).slice(0, 90) : undefined,
+        state: formData.state ? String(formData.state).slice(0, 90) : undefined,
+        zip: formData.pincode ? String(formData.pincode).slice(0, 50) : undefined,
+        country: formData.country ? String(formData.country).slice(0, 90) : 'India',
       };
 
       const invoicePayload: Record<string, unknown> = {
