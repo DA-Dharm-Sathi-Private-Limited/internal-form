@@ -254,6 +254,14 @@ export const PUT = withDb(async (
 
   // Step B: Create new invoice with original number
   let newInvoiceData: any;
+  const addressObj = order.customerDetails ? {
+    attention: order.customerDetails.customer_name || undefined,
+    street: order.customerDetails.address || undefined,
+    city: order.customerDetails.city || undefined,
+    state: order.customerDetails.state || undefined,
+    zip: order.customerDetails.pincode || undefined,
+    country: order.customerDetails.country || 'India',
+  } : undefined;
   try {
     newInvoiceData = await createReplacementInvoice(headers, {
       customerId,
@@ -264,6 +272,7 @@ export const PUT = withDb(async (
       discount: resolvedDiscount,
       discountType: resolvedDiscountType,
       isDiscountBeforeTax: resolvedIsDiscountBeforeTax,
+      address: addressObj,
     });
   } catch (err: any) {
     console.error('Creation failed, rolling back rename...', err.message);
@@ -311,6 +320,7 @@ async function createReplacementInvoice(
     discount?: number;
     discountType?: string;
     isDiscountBeforeTax?: boolean;
+    address?: Record<string, unknown>;
   }
 ) {
   const payload: any = {
@@ -321,6 +331,10 @@ async function createReplacementInvoice(
     is_round_off_applied: true,
     notes: 'Updated via Edit Invoice.',
   };
+  if (opts.address) {
+    payload.billing_address = opts.address;
+    payload.shipping_address = opts.address;
+  }
   if (opts.salespersonName) payload.salesperson_name = opts.salespersonName;
   if (opts.discount && opts.discount > 0) {
     payload.discount = opts.discount;

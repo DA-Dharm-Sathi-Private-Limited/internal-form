@@ -97,14 +97,10 @@ export const POST = withError(async (request: NextRequest) => {
     customer_id: body.customer_id,
     date: body.date,
     invoice_items: cleanItems,
-    shipping_address: {
-      street: ' ',
-      city: ' ',
-      state: ' ',
-      zip: ' ',
-      country: ' ',
-    },
-  };
+    };
+
+  if (body.billing_address) payload.billing_address = body.billing_address;
+  if (body.shipping_address) payload.shipping_address = body.shipping_address;
 
   if (body.reference_number) payload.reference_number = body.reference_number;
   if (body.gst_treatment) payload.gst_treatment = body.gst_treatment;

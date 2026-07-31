@@ -18,13 +18,13 @@ export default function DashboardLayout({
     const router = useRouter();
   
   
-    useEffect(()=>{
+    // useEffect(()=>{
   
-        if(!isAuthenticated){
-          router.push('/login')
-        }
+    //     if(!isAuthenticated){
+    //       router.push('/login')
+    //     }
   
-    },[isAuthenticated])
+    // },[isAuthenticated])
 
 
   return (

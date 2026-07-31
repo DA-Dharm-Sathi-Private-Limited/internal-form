@@ -1,11 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { useAuthStore } from "@/store/authStore";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const { isAuthenticated, user } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/create-order");
+  }, [router]);
 
   return <></>;
 }

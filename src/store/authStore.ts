@@ -15,8 +15,12 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: {
+    id: "admin@humarapandit.com",
+    name: "Admin User",
+    email: "admin@humarapandit.com",
+  },
+  isAuthenticated: true,
 
   login: (user) =>
     set({

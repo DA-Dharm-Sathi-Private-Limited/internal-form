@@ -72,9 +72,19 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
 
         try {
             // 1. Create Zoho Invoice
+            const addressPayload = {
+                attention: formData.customer_name || undefined,
+                street: formData.address || undefined,
+                city: formData.city || undefined,
+                state: formData.state || undefined,
+                zip: formData.pincode || undefined,
+                country: formData.country || 'India',
+            };
             const invoicePayload = {
                 customer_id: formData.customer_id,
                 date: formData.date,
+                billing_address: addressPayload,
+                shipping_address: addressPayload,
                 reference_number: formData.reference_number || undefined,
                 gst_treatment: formData.gst_treatment,
                 salesperson_name: formData.salesperson_name || undefined,
