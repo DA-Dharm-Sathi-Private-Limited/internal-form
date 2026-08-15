@@ -66,6 +66,22 @@ const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
     '996812': { inter: '3355221000000032375', intra: '3355221000000032451' },
 };
 
+/**
+ * HSN Tax Rates mapping (percentage)
+ */
+export const HSN_TAX_RATES: Record<string, number> = {
+    '14049070': 0,      // 0% — Rudrakshas
+    '05080010': 0.25,   // 0.25% — Gemstones and Raw Crystals
+    '71179090': 3,      // 3% — Bracelets, Malas and Decorative Items
+    '83062990': 18,     // 18% — Vastu Metal
+    '74198090': 18,     // 18% — Vastu Copper/Brass
+    '44209090': 3,      // 3% — Vastu Wooden (miscellaneous)
+    '39269090': 3,      // 3% — Miscellaneous Goods
+    '999591': 0,        // 0% — Poojas and Services
+    '999799': 0,        // 0% — Miscellaneous Services
+    '996812': 18,       // 18% — Delivery and COD Charges
+};
+
 const TAX_18_INTER = '3355221000000032375'; // IGST18
 const TAX_18_INTRA = '3355221000000032451'; // GST18
 

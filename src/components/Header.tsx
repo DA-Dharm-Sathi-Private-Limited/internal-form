@@ -4,19 +4,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
-import { useAuthStore } from "@/store/authStore";
 import { LogOut, User, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
-    logout();
     await signOut({
       callbackUrl: "/login",
     });
@@ -76,6 +75,10 @@ export default function Header() {
     {
       name: "Admin",
       href: "/admin",
+    },
+    {
+      name: "Export Data",
+      href: "/export-data",
     },
   ];
 

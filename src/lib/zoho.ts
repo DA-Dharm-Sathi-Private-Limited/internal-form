@@ -186,7 +186,7 @@ async function fetchInvoices(page: number = 1, statusMask?: string, dateStart?: 
 /**
  * Fetch all invoices from Zoho Billing (paginated).
  */
-async function fetchAllInvoices(params?: { statusMask?: string, dateStart?: string, dateEnd?: string }) {
+export async function fetchAllInvoices(params?: { statusMask?: string, dateStart?: string, dateEnd?: string }) {
     let allInvoices: any[] = [];
     let page = 1;
     let hasMore = true;

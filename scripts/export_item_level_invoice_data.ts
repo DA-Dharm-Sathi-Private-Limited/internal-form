@@ -60,6 +60,7 @@ interface CliArgs {
     to: string;
     dbOnly: boolean;
     voidOnly: boolean;
+    noMismatches: boolean;
 }
 
 interface HsnCategory {
@@ -100,6 +101,7 @@ function parseCliArgs(argv: string[]): CliArgs {
         to: defaultTo,
         dbOnly: false,
         voidOnly: false,
+        noMismatches: false,
     };
 
     for (const raw of argv) {
@@ -108,6 +110,7 @@ function parseCliArgs(argv: string[]): CliArgs {
         else if (raw.startsWith('--to=')) args.to = raw.split('=')[1];
         else if (raw === '--db-only') args.dbOnly = true;
         else if (raw === '--void') args.voidOnly = true;
+        else if (raw === '--no-mismatches') args.noMismatches = true;
     }
 
     return args;
@@ -533,7 +536,7 @@ async function main() {
         'Customer Phone Number',
         'Astrologer Name',
         'Astrologer Phone Number',
-        'Salesperson Name',
+        'salesperson_name',
         'Address',
         'City',
         'State',
@@ -748,9 +751,6 @@ async function main() {
         }
     }
 
-    // ─── Verification: Invoice Total vs Item Sum ───
-    console.log(bold('\n━━━ Verification: Invoice Total vs Item Sum ━━━'));
-
     interface VerifyMismatch {
         invoiceNumber: string;
         source: string;
@@ -761,9 +761,13 @@ async function main() {
 
     const mismatches: VerifyMismatch[] = [];
 
-    // Verify DB invoices (inBoth + dbOnly)
-    // DB: invoiceTotal = sum(item_price_inclusive * qty) - discount
-    // item_price is tax-inclusive (final_price or (item_total + tax_amount) / qty)
+    if (!args.noMismatches) {
+        // ─── Verification: Invoice Total vs Item Sum ───
+        console.log(bold('\n━━━ Verification: Invoice Total vs Item Sum ━━━'));
+
+        // Verify DB invoices (inBoth + dbOnly)
+        // DB: invoiceTotal = sum(item_price_inclusive * qty) - discount
+        // item_price is tax-inclusive (final_price or (item_total + tax_amount) / qty)
     for (const invoiceNumber of [...inBoth, ...dbOnly]) {
         const order = dbMap.get(invoiceNumber);
         if (!order) continue;
@@ -817,18 +821,19 @@ async function main() {
         }
     }
 
-    if (mismatches.length > 0) {
-        console.log(red(`\n⚠ Found ${mismatches.length} invoice(s) with total vs item-sum mismatch (>±0.1):\n`));
-        for (const m of mismatches) {
-            console.log(
-                `  ${yellow(m.invoiceNumber)} [${m.source}] ` +
-                `Invoice: ₹${formatMoney(m.invoiceTotal)} | Items: ₹${formatMoney(m.itemSum)} | ` +
-                `Diff: ₹${formatMoney(m.diff)}`
-            );
+        if (mismatches.length > 0) {
+            console.log(red(`\n⚠ Found ${mismatches.length} invoice(s) with total vs item-sum mismatch (>±0.1):\n`));
+            for (const m of mismatches) {
+                console.log(
+                    `  ${yellow(m.invoiceNumber)} [${m.source}] ` +
+                    `Invoice: ₹${formatMoney(m.invoiceTotal)} | Items: ₹${formatMoney(m.itemSum)} | ` +
+                    `Diff: ₹${formatMoney(m.diff)}`
+                );
+            }
+            console.log('');
+        } else {
+            console.log(green('\n✅ All invoices pass verification (invoice total matches item sum within ±0.1).\n'));
         }
-        console.log('');
-    } else {
-        console.log(green('\n✅ All invoices pass verification (invoice total matches item sum within ±0.1).\n'));
     }
 
     const csvContent = rows.map((row) => row.join(',')).join('\n');

@@ -1,31 +1,17 @@
-'use client'
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { redirect } from "next/navigation";
 
-import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await getServerSession(authOptions);
 
-  const { user, isAuthenticated } = useAuthStore();
-  const router = useRouter();
+  if (session) {
+    redirect("/");
+  }
 
-
-  useEffect(()=>{
-      if(isAuthenticated){
-        router.push('/')
-      }
-
-  },[isAuthenticated])
-
-  return (
-   <>
-   
-   {
-    children
-   }</>
-  );
+  return <>{children}</>;
 }
