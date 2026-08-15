@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         const outputPath = path.join(os.tmpdir(), fileName);
 
         // Run the script. The script should be modified to avoid showing mismatches if passed --no-mismatches.
-        const cmd = `bunx tsx scripts/export_item_level_invoice_data.ts --from=${from} --to=${to} --output="${outputPath}" --no-mismatches`;
+        const cmd = `npx tsx scripts/export_item_level_invoice_data.ts --from=${from} --to=${to} --output="${outputPath}" --no-mismatches`;
         
         await execAsync(cmd, { cwd: process.cwd() });
 

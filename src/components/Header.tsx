@@ -16,9 +16,7 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
-    await signOut({
-      callbackUrl: "/login",
-    });
+    await signOut();
   };
 
   useEffect(() => {
