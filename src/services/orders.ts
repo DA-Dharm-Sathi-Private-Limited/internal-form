@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export interface OrderShipment {
+interface OrderShipment {
   vendor: string;
   deliveryPartner?: string;
   waybill?: string;

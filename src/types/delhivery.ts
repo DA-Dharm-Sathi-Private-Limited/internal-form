@@ -7,7 +7,7 @@ import { DelhiveryWarehouse } from '../config/warehouses';
 export type Warehouse = DelhiveryWarehouse;
 
 // --- Pincode Serviceability ---
-export interface PincodeCheckResponse {
+interface PincodeCheckResponse {
   delivery_codes: Array<{
     postal_code: {
       pin: number;
@@ -25,7 +25,7 @@ export interface PincodeCheckResponse {
 }
 
 // --- Expected TAT ---
-export interface ExpectedTATResponse {
+interface ExpectedTATResponse {
   status: number;
   expected_delivery_date?: string; // e.g., "2024-06-03 23:59:00"
   promised_delivery_date?: string;
@@ -80,14 +80,14 @@ export interface ShipmentData {
   seller_inv?: string;
 }
 
-export interface ShipmentPayload {
+interface ShipmentPayload {
   shipments: ShipmentData[];
   pickup_location: {
     name: string;
   };
 }
 
-export interface ShipmentCreationResponse {
+interface ShipmentCreationResponse {
   success: boolean;
   packages: Array<{
     status: string;
@@ -104,7 +104,7 @@ export interface ShipmentCreationResponse {
 }
 
 // --- Generate Shipping Label ---
-export interface ShippingLabelResponse {
+interface ShippingLabelResponse {
   packages_found: number;
   packages: Array<{
     pdf_download_link: string;
@@ -121,7 +121,7 @@ export interface PickupRequestData {
   expected_package_count: number;
 }
 
-export interface PickupRequestResponse {
+interface PickupRequestResponse {
   pickup_id?: string;
   pr_exist?: boolean;
   incoming_center?: string;
@@ -129,7 +129,7 @@ export interface PickupRequestResponse {
 }
 
 // --- Tracking ---
-export interface TrackingScan {
+interface TrackingScan {
   ScanDateTime: string;
   ScanType: string;
   Scan: string;
@@ -139,7 +139,7 @@ export interface TrackingScan {
   StatusCode: string;
 }
 
-export interface TrackingScanWrapper {
+interface TrackingScanWrapper {
   ScanDetail: TrackingScan;
 }
 
@@ -189,6 +189,6 @@ export interface TrackingShipmentData {
   };
 }
 
-export interface TrackingResponse {
+interface TrackingResponse {
   ShipmentData: TrackingShipmentData[];
 }

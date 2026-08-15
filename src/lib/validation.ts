@@ -50,17 +50,4 @@ export const invoiceItemsStepSchema = z.object({
     payment_mode: z.string().refine(val => val === 'Prepaid' || val === 'COD', { message: 'Payment Mode is required' }),
 });
 
-export const shippingStepSchema = z.object({
-    warehouse: z.string().min(1, 'Pickup Location (Warehouse) is required'),
-    payment_mode: z.string().refine(val => val === 'Prepaid' || val === 'COD', { message: 'Payment Mode is required' }),
-    products_desc: z.string().min(1, 'Package Contents Description is required'),
-    weight: z.number().min(1, 'Weight must be strictly greater than 0 grams'),
-    length: z.number().optional().refine(val => !val || val > 0, 'Length must be > 0 if provided'),
-    width: z.number().optional().refine(val => !val || val > 0, 'Width must be > 0 if provided'),
-    height: z.number().optional().refine(val => !val || val > 0, 'Height must be > 0 if provided'),
-    shipping_seller_name: z.string().optional(),
-    shipping_seller_phone: z.string().optional(),
-    shipping_seller_address: z.string().optional(),
-    shipping_item_desc: z.string().optional(),
-    shipping_final_price: z.number().optional(),
-});
+

@@ -71,4 +71,3 @@ export const api = {
   },
 };
 
-export { ApiError, buildQuery };

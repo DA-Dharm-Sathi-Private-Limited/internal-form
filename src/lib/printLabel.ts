@@ -9,7 +9,7 @@
 import { delhiveryService } from '@/services/delhivery';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getLabelData(waybill: string): Promise<Record<string, any>> {
+async function getLabelData(waybill: string): Promise<Record<string, any>> {
   const data = await delhiveryService.getLabel(waybill);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,7 +25,7 @@ export async function getLabelData(waybill: string): Promise<Record<string, any>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function generateLabelHtml(pkg: Record<string, any>, waybill: string): Promise<string> {
+async function generateLabelHtml(pkg: Record<string, any>, waybill: string): Promise<string> {
   // Helper: try multiple possible field names in order
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const get = (...keys: string[]): string => {
@@ -179,7 +179,7 @@ export async function generateLabelHtml(pkg: Record<string, any>, waybill: strin
 </html>`;
 }
 
-export async function printDelhiveryLabel(waybill: string): Promise<void> {
+async function printDelhiveryLabel(waybill: string): Promise<void> {
   const pkg = await getLabelData(waybill);
   const html = await generateLabelHtml(pkg, waybill);
 

@@ -5,7 +5,7 @@ import { InvoiceItem, ZohoTax } from '@/types/invoice';
 // ============================================================
 
 // Single source of truth for our registered GST state
-export const BUSINESS_STATE_NAME = 'Haryana';
+const BUSINESS_STATE_NAME = 'Haryana';
 
 const BUSINESS_STATE_CODES = ['HR', '06', 'HARYANA'];
 
@@ -13,7 +13,7 @@ const normalizeState = (value: string | undefined | null): string => {
     return (value || '').trim().toUpperCase();
 };
 
-export const isSameStateAsBusiness = (value: string | undefined | null): boolean => {
+const isSameStateAsBusiness = (value: string | undefined | null): boolean => {
     const norm = normalizeState(value);
     if (!norm) return false;
     if (BUSINESS_STATE_CODES.includes(norm)) return true;
@@ -34,7 +34,7 @@ export const isInterstateOrder = (customerStateOrCode: string | undefined | null
 // This is the ONLY source of truth for tax selection.
 // ============================================================
 
-export interface HsnTaxIds {
+interface HsnTaxIds {
     inter: string; // interstate (IGST) Zoho tax_id
     intra: string; // intrastate (CGST+SGST group) Zoho tax_id
 }
@@ -43,7 +43,7 @@ export interface HsnTaxIds {
  * Every HSN/SAC code maps to exactly one inter and one intra Zoho tax ID.
  * 0% items use the special 'NO_TAX' sentinel.
  */
-export const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
+const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
     // 0% — Rudrakshas
     '14049070': { inter: 'NO_TAX', intra: 'NO_TAX' },
     // 0.25% — Gemstones and Raw Crystals
@@ -66,23 +66,8 @@ export const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
     '996812': { inter: '3355221000000032375', intra: '3355221000000032451' },
 };
 
-// HSN → tax rate percentage (for display / reverse-calculation)
-export const HSN_TAX_RATES: Record<string, number> = {
-    '14049070': 0,
-    '05080010': 0.25,
-    '71179090': 3,
-    '83062990': 18,
-    '74198090': 18,
-    '44209090': 3,
-    '39269090': 3,
-    '999591': 0,
-    '999799': 0,
-    '996812': 18,
-};
-
-// 18% tax IDs used for shipping/COD charge line items
-export const TAX_18_INTER = '3355221000000032375'; // IGST18
-export const TAX_18_INTRA = '3355221000000032451'; // GST18
+const TAX_18_INTER = '3355221000000032375'; // IGST18
+const TAX_18_INTRA = '3355221000000032451'; // GST18
 
 // ============================================================
 // getCorrectTaxId  —  the ONE function everyone calls

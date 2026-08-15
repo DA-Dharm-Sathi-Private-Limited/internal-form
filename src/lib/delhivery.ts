@@ -7,7 +7,7 @@ import {
     PickupRequestData
 } from '@/types/delhivery';
 
-export function getDelhiveryToken(): string {
+function getDelhiveryToken(): string {
     const token = process.env.DELHIVERY_API_TOKEN;
     if (!token) {
         throw new Error('Missing DELHIVERY_API_TOKEN in environment variables');
@@ -15,7 +15,7 @@ export function getDelhiveryToken(): string {
     return token;
 }
 
-export function getBaseUrl(isTracking = false): string {
+function getBaseUrl(isTracking = false): string {
     const env = process.env.DELHIVERY_ENV || 'staging';
     if (isTracking) {
         return 'https://track.delhivery.com';
@@ -183,33 +183,3 @@ export async function trackShipment(waybill?: string, refId?: string) {
     return { status: res.status, data };
 }
 
-// 8. Fetch Bulk Waybills
-export async function fetchBulkWaybills(count: number = 10) {
-    // Force using the track.delhivery.com endpoint because staging often returns "Unable to fetch client name"
-    const domain = 'https://track.delhivery.com';
-
-    const url = new URL(`${domain}/waybill/api/bulk/json/`);
-    url.searchParams.append('count', String(count));
-    // The docs specify ?token=xxx
-    url.searchParams.append('token', getDelhiveryToken());
-
-    const res = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            // Also add standard authorization header just in case
-            'Authorization': `Token ${getDelhiveryToken()}`,
-            'Content-Type': 'application/json'
-        },
-    });
-
-    const text = await res.text();
-    let data;
-    try {
-        data = JSON.parse(text);
-    } catch {
-        throw new Error(`Delhivery Bulk Waybill API returned invalid JSON (Status ${res.status}): ${text}`);
-    }
-
-    return { status: res.status, data };
-}

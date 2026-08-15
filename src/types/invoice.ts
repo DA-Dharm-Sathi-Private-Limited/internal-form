@@ -69,7 +69,7 @@ export enum Salesperson {
 export const SALESPERSONS = Object.values(Salesperson) as readonly Salesperson[];
 
 // --- Address ---
-export interface Address {
+interface Address {
   street?: string;
   city?: string;
   state?: string;
@@ -108,13 +108,13 @@ export interface InvoiceItem {
 }
 
 // --- Custom Field ---
-export interface CustomField {
+interface CustomField {
   label: string;
   value: string;
 }
 
 // --- Create Invoice Request ---
-export interface CreateInvoiceRequest {
+interface CreateInvoiceRequest {
   customer_id: string;
   date: string; // YYYY-MM-DD
   due_date?: string;
@@ -153,7 +153,7 @@ export interface CreateInvoiceRequest {
 }
 
 // --- Create Invoice Response ---
-export interface CreateInvoiceResponse {
+interface CreateInvoiceResponse {
   code: number;
   message: string;
   invoice?: {
@@ -211,7 +211,7 @@ export interface ZohoItem {
   }>;
 }
 
-export interface CreateCustomerRequest {
+interface CreateCustomerRequest {
   display_name: string;
   email?: string;
   company_name?: string;
@@ -222,7 +222,7 @@ export interface CreateCustomerRequest {
 }
 
 // --- Form State ---
-export interface InvoiceFormData {
+interface InvoiceFormData {
   customer_id: string;
   customer_name: string;
   date: string;

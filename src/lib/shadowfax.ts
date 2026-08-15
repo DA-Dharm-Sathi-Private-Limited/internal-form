@@ -1,4 +1,4 @@
-export function getShadowfaxToken(): string {
+function getShadowfaxToken(): string {
   const token = process.env.SHADOWFAX_API_TOKEN;
   if (!token) {
     throw new Error('Missing SHADOWFAX_API_TOKEN in environment variables');
@@ -6,7 +6,7 @@ export function getShadowfaxToken(): string {
   return token;
 }
 
-export function getBaseUrl(): string {
+function getBaseUrl(): string {
   const env = process.env.SHADOWFAX_ENV || 'staging';
   return env === 'production'
     ? 'https://dale.shadowfax.in/api'

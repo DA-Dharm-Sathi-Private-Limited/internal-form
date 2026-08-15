@@ -148,7 +148,7 @@ export async function getInvoice(invoiceId: string) {
 /**
  * Fetch a page of invoices from Zoho Billing.
  */
-export async function fetchInvoices(page: number = 1, statusMask?: string, dateStart?: string, dateEnd?: string) {
+async function fetchInvoices(page: number = 1, statusMask?: string, dateStart?: string, dateEnd?: string) {
     const headers = await zohoHeaders();
 
     const params: Record<string, string> = {
@@ -186,7 +186,7 @@ export async function fetchInvoices(page: number = 1, statusMask?: string, dateS
 /**
  * Fetch all invoices from Zoho Billing (paginated).
  */
-export async function fetchAllInvoices(params?: { statusMask?: string, dateStart?: string, dateEnd?: string }) {
+async function fetchAllInvoices(params?: { statusMask?: string, dateStart?: string, dateEnd?: string }) {
     let allInvoices: any[] = [];
     let page = 1;
     let hasMore = true;
@@ -391,7 +391,7 @@ export async function createPayment(body: {
 /**
  * Fetch a page of active items from Zoho Billing.
  */
-export async function fetchItems(page: number = 1) {
+async function fetchItems(page: number = 1) {
     const headers = await zohoHeaders();
 
     const params = new URLSearchParams({

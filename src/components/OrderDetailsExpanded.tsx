@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface InvoiceItem {
+interface InvoiceItem {
     item_id?: string;
     name?: string;
     description?: string;
@@ -50,7 +50,7 @@ export function formatCurrency(amount: number): string {
     }).format(amount);
 }
 
-export function getOrderLineSum(order: OrderData): number {
+function getOrderLineSum(order: OrderData): number {
     if (!order.invoiceItems) return 0;
     return order.invoiceItems.reduce((s, i) => s + (i.item_total || 0) + (i.tax_amount || 0), 0);
 }
@@ -60,7 +60,7 @@ export function getOrderTotal(order: OrderData): number {
     return getOrderLineSum(order);
 }
 
-export function getOrderDiscount(order: OrderData): number {
+function getOrderDiscount(order: OrderData): number {
     if (order.invoiceTotal == null || !Number.isFinite(order.invoiceTotal)) return 0;
     const before = getOrderLineSum(order);
     const discount = before - order.invoiceTotal;
