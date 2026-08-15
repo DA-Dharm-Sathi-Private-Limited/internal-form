@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { submitGrievance } from '@/app/(dashboard)/actions/grievanceActions';
+import { SALESPERSONS } from '@/types/invoice';
 
 export default function GrievanceForm({ onSuccess }: { onSuccess?: () => void }) {
     const [submitting, setSubmitting] = useState(false);
@@ -86,7 +87,9 @@ export default function GrievanceForm({ onSuccess }: { onSuccess?: () => void })
                             required
                         >
                             <option value="" disabled>Select a salesperson</option>
-                            <option value="daksh">Daksh</option>
+                            {SALESPERSONS.map(sp => (
+                                <option key={sp} value={sp}>{sp}</option>
+                            ))}
                         </select>
                     </div>
 

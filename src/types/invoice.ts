@@ -63,6 +63,7 @@ export enum Salesperson {
   Drishti = 'Drishti',
   Bhavana = 'Bhavana',
   Rajveer = 'Rajveer',
+  Tanu = 'Tanu',
   Other = 'Other',
 }
 
