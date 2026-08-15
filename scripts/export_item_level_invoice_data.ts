@@ -460,11 +460,18 @@ async function fetchZohoFullDetails(zoho: any, invoiceIds: Array<{ number: strin
     return details;
 }
 
-async function main() {
-    const args = parseCliArgs(process.argv.slice(2));
+export async function generateExportCSV(partialArgs: Partial<CliArgs> = {}): Promise<string> {
+    const args: CliArgs = {
+        output: 'item_level_invoice_data.csv',
+        from: '2026-01-01',
+        to: new Date().toISOString().split('T')[0],
+        dbOnly: false,
+        voidOnly: false,
+        noMismatches: true,
+        ...partialArgs
+    };
 
     console.log(bold('\n📦 Item-Level Invoice Export\n'));
-    console.log(`Output:       ${cyan(args.output)}`);
     console.log(`Date Filter:  ${args.from} → ${args.to}`);
     if (args.voidOnly) console.log(yellow('Mode:         VOID-only (Zoho void invoices, skipping DB)'));
     else if (args.dbOnly) console.log(yellow('Mode:         DB-only (skipping Zoho)'));
@@ -837,23 +844,20 @@ async function main() {
     }
 
     const csvContent = rows.map((row) => row.join(',')).join('\n');
-    const outputPath = path.resolve(process.cwd(), args.output);
-    fs.writeFileSync(outputPath, csvContent, 'utf-8');
-
-    console.log(bold('\n━━━ Summary ━━━'));
-    console.log(`Total exported rows: ${green(String(rows.length - 1))}`);
-    if (zohoWarnCount > 0) {
-        console.log(`Warnings:            ${yellow(String(zohoWarnCount))} (Zoho details fetch failed)`);
-    }
-    if (mismatches.length > 0) {
-        console.log(`Mismatches:          ${red(String(mismatches.length))} (invoice total ≠ item sum)`);
-    }
-    console.log(`\n📁 Saved to: ${cyan(outputPath)}`);
-
-    process.exit(0);
+    
+    return csvContent;
 }
 
-main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-});
+// If run from CLI directly
+if (require.main === module) {
+    const args = parseCliArgs(process.argv.slice(2));
+    generateExportCSV(args).then((csvContent) => {
+        const outputPath = path.resolve(process.cwd(), args.output);
+        fs.writeFileSync(outputPath, csvContent, 'utf-8');
+        console.log(`\n📁 Saved to: ${cyan(outputPath)}`);
+        process.exit(0);
+    }).catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
+}
