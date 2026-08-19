@@ -3,6 +3,8 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions: AuthOptions = {
+  // @ts-expect-error - NextAuth trustHost for Vercel Serverless deployments
+  trustHost: true,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "dummy-client-id",
@@ -18,8 +20,8 @@ export const authOptions: AuthOptions = {
         if (!credentials?.email) return null;
         const email = credentials.email.trim().toLowerCase();
         
-        // Allow @humarapandit.com emails or default admin
-        if (email.endsWith("@humarapandit.com") || email.endsWith("@dharm-sathi.com") || email === "admin@humarapandit.com" || email.includes("@")) {
+        // Allow any sales corporate email or default email sign-in
+        if (email.includes("@")) {
           const name = credentials.name || email.split("@")[0].replace(/\./g, " ").replace(/\b\w/g, c => c.toUpperCase());
           return {
             id: email,
@@ -45,7 +47,7 @@ export const authOptions: AuthOptions = {
     },
     async session({ session, token }) {
       if (session.user && token) {
-        session.user.email = token.email || session.user.email;
+        session.user.email = (token.email as string) || session.user.email;
         session.user.name = (token.name as string) || session.user.name;
       }
       return session;
