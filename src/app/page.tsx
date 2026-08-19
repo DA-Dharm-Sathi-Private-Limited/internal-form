@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import EmployeeDashboard from "@/components/EmployeeDashboard";
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/create-order");
-  }, [router]);
-
-  return <></>;
+  return (
+    <div className="py-2">
+      <EmployeeDashboard />
+    </div>
+  );
 }

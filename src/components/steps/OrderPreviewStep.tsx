@@ -6,6 +6,7 @@ import stateCodesData from '@/data/state-codes.json';
 import { isInterstateOrder, get18PctTaxId } from '@/lib/tax';
 import { zohoService } from '@/services/zoho';
 import { ordersService } from '@/services/orders';
+import { toast } from 'sonner';
 
 interface Props {
     formData: CombinedFormData;
@@ -66,11 +67,28 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
     }
 
 
+    const [isTestMode, setIsTestMode] = useState(true);
+
     const handleConfirm = async () => {
         setSubmitting(true);
         setErrorMsg('');
 
         try {
+            if (isTestMode) {
+                // Dry-run mode for local testing
+                const mockInvoiceId = `TEST-ZOHO-${Date.now()}`;
+                const mockInvoiceNumber = `TEST-INV-${Math.floor(1000 + Math.random() * 9000)}`;
+                
+                updateForm({
+                    invoiceId: mockInvoiceId,
+                    orderId: mockInvoiceNumber,
+                });
+                
+                toast.info('🧪 Test Mode: Invoice generated for preview! (No records saved to database or Zoho)');
+                onNext();
+                return;
+            }
+
             // 1. Create Zoho Invoice
             const addressPayload = {
                 attention: formData.customer_name || undefined,
@@ -94,7 +112,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 discount_type: 'entity_level',
                 is_discount_before_tax: false,
                 notes: formData.notes,
-                // Send phone as a custom field on the invoice
                 custom_fields: [
                     {
                         label: 'Phone Number',
@@ -133,9 +150,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                     astrologerName: formData.astrologer_name,
                     astrologerNumber: formData.astrologer_number,
                 },
-                // Persist the raw UI items with additional delivery items, including optional descriptions,
-                // so the schedule-order wizard can see them even though we
-                // no longer send description to Zoho.
                 invoiceItems: finalInvoiceItems,
                 invoiceTotal: zohoInvoiceTotal || grandTotal,
                 invoiceDate: formData.date,
@@ -261,21 +275,36 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
 
 
 
-            <div className="mt-8 flex justify-between">
-                <button className="btn btn-secondary" onClick={onPrev} disabled={submitting}>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 dark:border-[#2a2a38]">
+                <button className="btn btn-secondary w-full sm:w-auto" onClick={onPrev} disabled={submitting}>
                     🡨 Back
                 </button>
-                <button
-                    className="btn btn-submit w-auto px-8"
-                    onClick={handleConfirm}
-                    disabled={submitting}
-                >
-                    {submitting ? (
-                        <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Creating Invoice...</>
-                    ) : (
-                        'Confirm & Create Invoice ➔'
-                    )}
-                </button>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-500 dark:text-amber-400 bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-500/30">
+                        <input
+                            type="checkbox"
+                            checked={isTestMode}
+                            onChange={(e) => setIsTestMode(e.target.checked)}
+                            className="rounded border-amber-500 accent-amber-500"
+                        />
+                        <span>🧪 Test Mode (Preview only — do not save to live DB/Zoho)</span>
+                    </label>
+
+                    <button
+                        className={`btn w-full sm:w-auto px-8 ${isTestMode ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' : 'btn-submit'}`}
+                        onClick={handleConfirm}
+                        disabled={submitting}
+                    >
+                        {submitting ? (
+                            <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Processing...</>
+                        ) : isTestMode ? (
+                            '🧪 Preview Invoice (Test Mode) ➔'
+                        ) : (
+                            'Confirm & Create Invoice ➔'
+                        )}
+                    </button>
+                </div>
             </div>
         </div>
     );

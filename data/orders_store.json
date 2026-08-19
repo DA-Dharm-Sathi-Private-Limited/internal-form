@@ -1,0 +1,60 @@
+[
+  {
+    "_id": "ord_ajay_arora_001",
+    "orderId": "ORD-1001",
+    "zohoInvoiceId": "INV-1001",
+    "createdAt": "2026-08-19T09:15:00.000Z",
+    "updatedAt": "2026-08-19T09:15:00.000Z",
+    "customerDetails": {
+      "customer_name": "Ajay Arora",
+      "phone": "8527666911",
+      "address": "57 C Golden Castle, Dayal Pura Road, Near Chimney Heights",
+      "city": "Zirakpur",
+      "state": "Punjab",
+      "pincode": "140603"
+    },
+    "invoiceItems": [
+      { "name": "Cat's Eye", "quantity": 1, "final_price": 270, "hsn_or_sac": "05080010", "rate": 270, "pre_tax_price": 269.33, "tax_amount": 0.67, "cost_price": 213.33 },
+      { "name": "Citrine Yellow", "quantity": 1, "final_price": 150, "hsn_or_sac": "05080010", "rate": 150, "pre_tax_price": 149.63, "tax_amount": 0.37, "cost_price": 133.33 },
+      { "name": "Lava + 7 Chakra", "quantity": 1, "final_price": 150, "hsn_or_sac": "71179090", "rate": 150, "pre_tax_price": 145.63, "tax_amount": 4.37, "cost_price": 100 },
+      { "name": "Sunstone", "quantity": 1, "final_price": 270, "hsn_or_sac": "05080010", "rate": 270, "pre_tax_price": 269.33, "tax_amount": 0.67, "cost_price": 233.33 },
+      { "name": "Green Aventurine", "quantity": 1, "final_price": 180, "hsn_or_sac": "05080010", "rate": 180, "pre_tax_price": 179.55, "tax_amount": 0.45, "cost_price": 120 },
+      { "name": "Tiger Eye", "quantity": 1, "final_price": 140, "hsn_or_sac": "05080010", "rate": 140, "pre_tax_price": 139.65, "tax_amount": 0.35, "cost_price": 93.33 }
+    ],
+    "invoiceTotal": 1260,
+    "invoiceDate": "2026-08-19",
+    "salespersonName": "Muskan Sharma",
+    "paymentMode": "Prepaid",
+    "status": "PENDING_SHIPPING",
+    "selfShipped": false
+  },
+  {
+    "_id": "ord_ruuchi_sharrma_002",
+    "orderId": "ORD-1002",
+    "zohoInvoiceId": "INV-1002",
+    "createdAt": "2026-08-19T10:09:55.520Z",
+    "updatedAt": "2026-08-19T10:09:55.520Z",
+    "customerDetails": {
+      "customer_name": "Ruuchi Sharrma",
+      "phone": "9983631551",
+      "address": "House no 55 A",
+      "city": "Meerut",
+      "state": "Rajasthan",
+      "pincode": "313001"
+    },
+    "astrologerDetails": {
+      "astrologerName": "Astrologer Naman Goel",
+      "astrologerPhone": "9983631551"
+    },
+    "invoiceItems": [
+      { "name": "Pyrite Bracelet", "quantity": 1, "final_price": 2500, "hsn_or_sac": "71179090", "rate": 2500, "pre_tax_price": 2427.18, "tax_amount": 72.82, "cost_price": 1000 },
+      { "name": "Rudraksha", "quantity": 1, "final_price": 1200, "hsn_or_sac": "14049070", "rate": 1200, "pre_tax_price": 1165.05, "tax_amount": 34.95, "cost_price": 480 }
+    ],
+    "invoiceTotal": 3800,
+    "invoiceDate": "2026-08-19",
+    "salespersonName": "Muskan Sharma",
+    "paymentMode": "Prepaid",
+    "status": "PENDING_SHIPPING",
+    "selfShipped": false
+  }
+]

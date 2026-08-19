@@ -129,8 +129,30 @@ export default function LineItemRow({
                                     updates.tax_id = getCorrectTaxId(matched.hsn_or_sac, isInterstate);
                                 }
                             } else {
-                                // Name edited away from a known item — clear the catalog reference
+                                // Name edited away from a known item — clear catalog reference
                                 updates.zoho_item_id = '';
+                                // Auto-classify based on name keywords if HSN not set
+                                const lowerName = val.toLowerCase();
+                                let autoHsn = '';
+                                if (/bracelet|crystal|mala|pyrite|amethyst|chakra|roller|plate/i.test(lowerName)) {
+                                    autoHsn = '71179090'; // Bracelets & Decorative Items
+                                } else if (/rudraksh|mukhi|tulsi|bead/i.test(lowerName)) {
+                                    autoHsn = '14049070'; // Rudrakshas (0%)
+                                } else if (/gemstone|ruby|sapphire|emerald|coral|pearl|geode|raw/i.test(lowerName)) {
+                                    autoHsn = '05080010'; // Gemstones (0.25%)
+                                } else if (/copper|brass|yantra|tortoise/i.test(lowerName)) {
+                                    autoHsn = '74198090'; // Copper/Brass (18%)
+                                } else if (/metal|pyramid|statuette/i.test(lowerName)) {
+                                    autoHsn = '83062990'; // Metal (18%)
+                                } else if (/wood|shriparni/i.test(lowerName)) {
+                                    autoHsn = '44209090'; // Wooden (3%)
+                                } else if (/pooja|puja|astrolog|consult/i.test(lowerName)) {
+                                    autoHsn = '999591'; // Poojas & Services (0%)
+                                }
+                                if (autoHsn && !item.hsn_or_sac) {
+                                    updates.hsn_or_sac = autoHsn;
+                                    updates.tax_id = getCorrectTaxId(autoHsn, isInterstate);
+                                }
                             }
                             onChange(index, updates);
                         }}
@@ -162,22 +184,24 @@ export default function LineItemRow({
                 </div>
 
                 <div className="line-item-field line-item-hsn">
-                    <label>HSN/SAC{!item.zoho_item_id && ' *'}</label>
+                    <label>HSN/SAC Code & Category *</label>
                     <select
                         className="form-input"
                         value={item.hsn_or_sac || ''}
-                        disabled={!!item.zoho_item_id || readOnlyAllExceptCostPrice}
+                        disabled={readOnlyAllExceptCostPrice}
                         title={
-                            item.zoho_item_id
-                                ? 'HSN is pre-set from Zoho for existing products'
-                                : (HSN_CATEGORIES.find(c => c.code === item.hsn_or_sac)?.description ?? 'Select HSN/SAC category')
+                            HSN_CATEGORIES.find(c => c.code === item.hsn_or_sac)?.description ?? 'Select HSN/SAC category'
                         }
                         onChange={(e) => {
                             const code = e.target.value;
-                            onChange(index, { hsn_or_sac: code });
+                            const taxId = code ? getCorrectTaxId(code, isInterstate) : item.tax_id;
+                            onChange(index, { 
+                                hsn_or_sac: code,
+                                ...(taxId ? { tax_id: taxId } : {})
+                            });
                         }}
                     >
-                        <option value="">— Select HSN/SAC —</option>
+                        <option value="">— Select HSN/SAC Category —</option>
                         {HSN_CATEGORIES.map(cat => (
                             <option key={cat.code} value={cat.code} title={cat.description}>
                                 {cat.name} ({cat.code})

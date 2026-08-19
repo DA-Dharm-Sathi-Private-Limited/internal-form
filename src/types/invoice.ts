@@ -59,12 +59,11 @@ export const INDIAN_STATE_NAMES: Record<string, string> = {
 
 // --- Salesperson ---
 export enum Salesperson {
+  Muskan = 'Muskan',
+  Tannu = 'Tannu',
   Daksh = 'Daksh',
   Drishti = 'Drishti',
   Bhavana = 'Bhavana',
-  Rajveer = 'Rajveer',
-  Tanu = 'Tanu',
-  Other = 'Other',
 }
 
 export const SALESPERSONS = Object.values(Salesperson) as readonly Salesperson[];

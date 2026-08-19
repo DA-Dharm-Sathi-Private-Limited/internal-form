@@ -31,9 +31,14 @@ export function withDb(
       await connectDB();
       return await handler(req, context);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Internal server error';
-      console.error(`[${req.method}] ${req.nextUrl.pathname}:`, msg);
-      return fail(msg, 500);
+      // If MongoDB is offline, still execute handler so persistent store handles request
+      try {
+        return await handler(req, context);
+      } catch (handlerErr) {
+        const msg = handlerErr instanceof Error ? handlerErr.message : 'Internal server error';
+        console.error(`[${req.method}] ${req.nextUrl.pathname}:`, msg);
+        return fail(msg, 500);
+      }
     }
   };
 }

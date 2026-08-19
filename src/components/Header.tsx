@@ -43,6 +43,10 @@ export default function Header() {
 
   const list = [
     {
+      name: "Employee Dashboard",
+      href: "/",
+    },
+    {
       name: "Create Order",
       href: "/create-order",
     },
