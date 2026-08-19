@@ -4,6 +4,9 @@ export interface ProductCP {
   keywords: string[];
   defaultCp: number;
   prayosha?: number;
+  babaGems?: number;
+  hamza?: number;
+  tiya?: number;
   krunal?: number;
   surya?: number;
   rudraRatan?: number;
@@ -163,7 +166,7 @@ export class ProductCPMaster {
 
   /**
    * Search for product CP by product name or item prompt text.
-   * Accepts optional vendor: 'prayosha' | 'krunal' | 'surya' | 'rudraRatan'
+   * Accepts optional vendor: 'prayosha' | 'baba gems' | 'hamza' | 'tiya' | 'krunal' | 'surya' | 'rudraRatan'
    */
   static getCostPrice(prodName: string, salesPrice: number = 0, vendor?: string): number {
     if (!prodName) return salesPrice ? Math.round(salesPrice * 0.4) : 150;
@@ -190,6 +193,9 @@ export class ProductCPMaster {
       if (vendor) {
         const vLower = vendor.toLowerCase();
         if (vLower.includes('prayosha') && matchedItem.prayosha) return matchedItem.prayosha;
+        if ((vLower.includes('baba') || vLower.includes('gems')) && matchedItem.babaGems) return matchedItem.babaGems;
+        if (vLower.includes('hamza') && matchedItem.hamza) return matchedItem.hamza;
+        if (vLower.includes('tiya') && matchedItem.tiya) return matchedItem.tiya;
         if (vLower.includes('krunal') && matchedItem.krunal) return matchedItem.krunal;
         if (vLower.includes('surya') && matchedItem.surya) return matchedItem.surya;
         if ((vLower.includes('rudra') || vLower.includes('ratan')) && matchedItem.rudraRatan) return matchedItem.rudraRatan;

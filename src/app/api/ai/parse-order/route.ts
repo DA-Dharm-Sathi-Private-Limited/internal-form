@@ -91,7 +91,10 @@ export async function POST(req: NextRequest) {
     if (vendorExplicit) {
       vendor = vendorExplicit[1].trim();
     } else {
-      if (/krunal/i.test(text)) vendor = 'Krunal';
+      if (/baba\s*gems|baba/i.test(text)) vendor = 'Baba Gems';
+      else if (/hamza/i.test(text)) vendor = 'Hamza';
+      else if (/tiya/i.test(text)) vendor = 'Tiya';
+      else if (/krunal/i.test(text)) vendor = 'Krunal';
       else if (/surya/i.test(text)) vendor = 'SURYA';
       else if (/rudra\s*ratan/i.test(text)) vendor = 'Rudra Ratan';
       else if (/prayosha/i.test(text)) vendor = 'Prayosha';

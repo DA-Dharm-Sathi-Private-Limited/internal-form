@@ -480,6 +480,9 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
             className="w-full p-2 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] text-xs font-semibold text-[var(--text-primary)] outline-none cursor-pointer"
           >
             <option value="Prayosha">Prayosha</option>
+            <option value="Baba Gems">Baba Gems</option>
+            <option value="Hamza">Hamza</option>
+            <option value="Tiya">Tiya</option>
             <option value="Krunal">Krunal</option>
             <option value="SURYA">SURYA</option>
             <option value="Rudra Ratan">Rudra Ratan</option>
