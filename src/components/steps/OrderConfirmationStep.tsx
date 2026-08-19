@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { CombinedFormData } from '@/types/wizard';
 import { zohoService } from '@/services/zoho';
+import { ordersService } from '@/services/orders';
+import { toast } from 'sonner';
 
 interface Props {
     formData: CombinedFormData;
@@ -26,11 +28,35 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
     const handleDownloadInvoice = async () => {
         if (!formData.invoiceId) return;
         setDownloadingInvoice(true);
+
         try {
-            const res = await zohoService.getInvoicePdf(formData.invoiceId);
-            if (!res.ok) throw new Error('Failed to download invoice pdf');
-            const blob = await res.blob();
-            downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
+            // 1. Download Invoice PDF
+            if (formData.invoiceId.startsWith('TEST-')) {
+                // Test mode dummy blob download
+                const dummyContent = `Humara Pandit Test Invoice ${formData.orderId}`;
+                const blob = new Blob([dummyContent], { type: 'text/plain' });
+                downloadBlob(blob, `invoice-${formData.orderId}.txt`);
+            } else {
+                const res = await zohoService.getInvoicePdf(formData.invoiceId);
+                if (!res.ok) throw new Error('Failed to download invoice pdf');
+                const blob = await res.blob();
+                downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
+            }
+
+            // 2. Save Order to Database ONLY upon Invoice Download
+            if (formData.pendingOrderPayload && !formData.isSavedToDb) {
+                try {
+                    const saveRes = await ordersService.create(formData.pendingOrderPayload);
+                    if (saveRes.success) {
+                        formData.isSavedToDb = true;
+                        toast.success('🎉 Invoice downloaded & Order saved to database!');
+                    }
+                } catch (saveErr) {
+                    console.error('Failed to save order to DB on download:', saveErr);
+                }
+            } else {
+                toast.success('📄 Invoice PDF downloaded successfully!');
+            }
         } catch (e) {
             console.error(e);
             alert('Error downloading invoice.');
@@ -48,7 +74,7 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
 
             <h2 className="text-2xl font-bold text-white mb-2">Invoice Created Successfully!</h2>
             <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                The invoice has been generated in Zoho Billing and the order is saved as Pending Shipping.
+                The invoice has been generated in Zoho Billing. Click below to download PDF and save order to database.
             </p>
 
             <div className="flex justify-center items-stretch max-w-sm mx-auto mb-10">
@@ -61,7 +87,7 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
                         onClick={handleDownloadInvoice}
                         disabled={downloadingInvoice}
                     >
-                        {downloadingInvoice ? 'Downloading...' : '📄 Download Invoice PDF'}
+                        {downloadingInvoice ? 'Downloading & Saving...' : '📄 Download Invoice PDF & Save Order'}
                     </button>
                 </div>
             </div>

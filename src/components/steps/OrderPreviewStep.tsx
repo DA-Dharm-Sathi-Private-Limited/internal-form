@@ -5,7 +5,6 @@ import { CombinedFormData } from '@/types/wizard';
 import stateCodesData from '@/data/state-codes.json';
 import { isInterstateOrder, get18PctTaxId } from '@/lib/tax';
 import { zohoService } from '@/services/zoho';
-import { ordersService } from '@/services/orders';
 import { toast } from 'sonner';
 
 interface Props {
@@ -66,7 +65,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
         finalInvoiceItems.push(buildChargeItem('COD Charges', 50, 'Cash on Delivery fee'));
     }
 
-
     const [isTestMode, setIsTestMode] = useState(true);
 
     const handleConfirm = async () => {
@@ -82,9 +80,10 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 updateForm({
                     invoiceId: mockInvoiceId,
                     orderId: mockInvoiceNumber,
+                    isSavedToDb: false
                 });
                 
-                toast.info('🧪 Test Mode: Invoice generated for preview! (No records saved to database or Zoho)');
+                toast.info('🧪 Test Mode: Invoice preview generated! (Will save to database only if Invoice is Downloaded)');
                 onNext();
                 return;
             }
@@ -131,7 +130,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
             const createdInvoiceNumber = invoice.invoice_number as string;
             const zohoInvoiceTotal = Number(invoice.total) || 0;
 
-            // 2. Save Order to Database
+            // Prepare Order Payload for saving ONLY when Invoice is Downloaded
             const orderPayload = {
                 zohoInvoiceId: createdInvoiceId,
                 orderId: createdInvoiceNumber,
@@ -159,19 +158,15 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                 selfShipped: !!formData.isSelfShipped
             };
 
-            const orderResult = await ordersService.create(orderPayload);
-
-            if (!orderResult.success) {
-                console.error('Failed to save to MongoDB:', orderResult.error);
-                throw new Error(`Invoice created in Zoho (#${createdInvoiceNumber}), but failed to save to database: ${orderResult.error || 'Unknown DB error'}. Please contact admin.`);
-            }
-
-            // 3. Update state and proceed
+            // Store order payload in state; DO NOT save to database yet until invoice is downloaded
             updateForm({
                 invoiceId: createdInvoiceId,
                 orderId: createdInvoiceNumber,
+                pendingOrderPayload: orderPayload,
+                isSavedToDb: false
             });
 
+            toast.success(`Invoice #${createdInvoiceNumber} created! Click "Download Invoice PDF" to save order to database.`);
             onNext();
 
         } catch (err) {
@@ -272,8 +267,6 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
                     </div>
                 </div>
             </div>
-
-
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 dark:border-[#2a2a38]">
                 <button className="btn btn-secondary w-full sm:w-auto" onClick={onPrev} disabled={submitting}>

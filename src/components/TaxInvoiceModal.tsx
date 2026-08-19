@@ -34,9 +34,10 @@ interface TaxInvoiceModalProps {
     grand_total: number;
   };
   onClose: () => void;
+  onDownloadPDF?: () => void;
 }
 
-export default function TaxInvoiceModal({ order, onClose }: TaxInvoiceModalProps) {
+export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxInvoiceModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
@@ -67,6 +68,9 @@ export default function TaxInvoiceModal({ order, onClose }: TaxInvoiceModalProps
   };
 
   const handleDownloadPDF = async () => {
+    if (onDownloadPDF) {
+      onDownloadPDF();
+    }
     if (!printRef.current) return;
     try {
       const html2pdfModule = await import('html2pdf.js');
@@ -88,6 +92,9 @@ export default function TaxInvoiceModal({ order, onClose }: TaxInvoiceModalProps
   };
 
   const handlePrint = () => {
+    if (onDownloadPDF) {
+      onDownloadPDF();
+    }
     window.print();
   };
 
@@ -115,7 +122,7 @@ export default function TaxInvoiceModal({ order, onClose }: TaxInvoiceModalProps
               onClick={handleDownloadPDF}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer flex items-center gap-1.5"
             >
-              📥 Download PDF
+              📥 Download PDF & Save Order
             </button>
             <button
               onClick={handlePrint}

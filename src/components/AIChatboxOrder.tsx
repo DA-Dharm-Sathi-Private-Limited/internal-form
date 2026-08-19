@@ -375,17 +375,16 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
         selfShipped: false,
       };
 
-      const res = await ordersService.create(dbPayload);
+      // Store pending DB payload in ref/state; save ONLY when invoice PDF is downloaded
+      setCreatedResult({
+        orderId: generatedOrderId,
+        invoiceId: generatedZohoId
+      });
+      (window as any).__pendingAiOrderPayload = dbPayload;
+      (window as any).__pendingAiOrderSaved = false;
 
-      if (res.success) {
-        setCreatedResult({
-          orderId: generatedOrderId,
-          invoiceId: generatedZohoId
-        });
-        toast.success(`🎉 Order #${generatedOrderId} successfully created in Database & Zoho!`);
-      } else {
-        throw new Error(res.error || 'Database save error');
-      }
+      setShowInvoiceModal(true);
+      toast.info(`Invoice #${generatedOrderId} generated! Click "Download PDF & Save Order" in the preview to save to database.`);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Error creating order');
@@ -794,6 +793,21 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
         <TaxInvoiceModal
           order={parsedOrder}
           onClose={() => setShowInvoiceModal(false)}
+          onDownloadPDF={async () => {
+            const payload = (window as any).__pendingAiOrderPayload;
+            const isSaved = (window as any).__pendingAiOrderSaved;
+            if (payload && !isSaved) {
+              try {
+                const res = await ordersService.create(payload);
+                if (res.success) {
+                  (window as any).__pendingAiOrderSaved = true;
+                  toast.success('🎉 Invoice downloaded & Order saved to Database!');
+                }
+              } catch (err) {
+                console.error('Failed to save AI order on invoice download:', err);
+              }
+            }
+          }}
         />
       )}
     </div>

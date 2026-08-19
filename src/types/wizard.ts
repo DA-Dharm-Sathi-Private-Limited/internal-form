@@ -66,6 +66,8 @@ export interface CombinedFormData {
     labelUrl?: string; // S3 link for shipping label
 
     orderId?: string; // Unique reference num generated
+    pendingOrderPayload?: any;
+    isSavedToDb?: boolean;
 
     // --- Schedule Order: planned shipment splits (UI only, not persisted) ---
     plannedShipments?: Array<{
@@ -91,7 +93,7 @@ export interface CombinedFormData {
         awb?: string;
     }>;
 
-    // --- Optional Shipping Overrides (removed from UI; kept in type for backward compat) ---
+    // --- Optional Shipping Overrides ---
     shipping_seller_name?: string;
     shipping_seller_phone?: string;
     shipping_seller_address?: string;
