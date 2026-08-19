@@ -6,41 +6,82 @@ import { getPersistentOrders } from '@/lib/persistent-orders';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const query = searchParams.get('q') || '';
-    const type = searchParams.get('type') || 'customer';
+    const query = (searchParams.get('q') || '').trim();
+    const type = searchParams.get('type') || 'all';
 
-    if (!query.trim()) {
-      return NextResponse.json({ success: true, orders: [] });
-    }
-
-    const q = query.trim().toLowerCase();
     let dbOrders: any[] = [];
 
     try {
       await connectDB();
-      let filter = {};
-      if (type === 'orderId') {
-        filter = { orderId: { $regex: q, $options: 'i' } };
-      } else if (type === 'customer') {
-        filter = { 'customerDetails.customer_name': { $regex: q, $options: 'i' } };
-      } else if (type === 'astrologer') {
-        filter = { 'astrologerDetails.astrologerName': { $regex: q, $options: 'i' } };
+      let filter: any = {};
+
+      if (query) {
+        const qRegex = { $regex: query, $options: 'i' };
+        if (type === 'orderId') {
+          filter = {
+            $or: [
+              { orderId: qRegex },
+              { zohoInvoiceId: qRegex },
+              { waybill: qRegex }
+            ]
+          };
+        } else if (type === 'customer') {
+          filter = {
+            $or: [
+              { 'customerDetails.customer_name': qRegex },
+              { 'customerDetails.phone': qRegex },
+              { 'customerDetails.city': qRegex }
+            ]
+          };
+        } else if (type === 'astrologer') {
+          filter = { 'astrologerDetails.astrologerName': qRegex };
+        } else {
+          // Universal search
+          filter = {
+            $or: [
+              { orderId: qRegex },
+              { zohoInvoiceId: qRegex },
+              { 'customerDetails.customer_name': qRegex },
+              { 'customerDetails.phone': qRegex },
+              { 'customerDetails.city': qRegex },
+              { 'customerDetails.state': qRegex },
+              { 'astrologerDetails.astrologerName': qRegex },
+              { salespersonName: qRegex },
+              { waybill: qRegex }
+            ]
+          };
+        }
       }
-      dbOrders = await Order.find(filter).sort({ createdAt: -1 }).limit(50).lean();
-    } catch {
-      // Offline fallback
+
+      dbOrders = await Order.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+    } catch (dbErr) {
+      console.warn('MongoDB Search error (using fallback local store):', dbErr);
     }
 
     const localOrders = getPersistentOrders();
+    const qLower = query.toLowerCase();
+
     const filteredLocal = localOrders.filter(o => {
-      if (type === 'orderId') {
-        return (o.orderId || '').toLowerCase().includes(q) || (o.zohoInvoiceId || '').toLowerCase().includes(q);
-      } else if (type === 'customer') {
-        return (o.customerDetails?.customer_name || '').toLowerCase().includes(q) || (o.customerDetails?.phone || '').includes(q);
-      } else if (type === 'astrologer') {
-        return (o.astrologerDetails?.astrologerName || '').toLowerCase().includes(q);
-      }
-      return true;
+      if (!query) return true;
+      const orderId = (o.orderId || '').toLowerCase();
+      const zohoId = (o.zohoInvoiceId || '').toLowerCase();
+      const custName = (o.customerDetails?.customer_name || '').toLowerCase();
+      const custPhone = (o.customerDetails?.phone || '').toLowerCase();
+      const astroName = (o.astrologerDetails?.astrologerName || '').toLowerCase();
+      const spName = (o.salespersonName || '').toLowerCase();
+
+      if (type === 'orderId') return orderId.includes(qLower) || zohoId.includes(qLower);
+      if (type === 'customer') return custName.includes(qLower) || custPhone.includes(qLower);
+      if (type === 'astrologer') return astroName.includes(qLower);
+
+      return (
+        orderId.includes(qLower) ||
+        zohoId.includes(qLower) ||
+        custName.includes(qLower) ||
+        custPhone.includes(qLower) ||
+        astroName.includes(qLower) ||
+        spName.includes(qLower)
+      );
     });
 
     const orderMap = new Map<string, any>();

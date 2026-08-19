@@ -6,10 +6,10 @@ import OrderDetailsExpanded, { OrderData } from './OrderDetailsExpanded';
 import { ordersService } from '@/services/orders';
 import { zohoService } from '@/services/zoho';
 
-type SearchType = 'orderId' | 'customer' | 'astrologer';
+type SearchType = 'all' | 'orderId' | 'customer' | 'astrologer';
 
 export default function SearchOrders() {
-    const [searchType, setSearchType] = useState<SearchType>('orderId');
+    const [searchType, setSearchType] = useState<SearchType>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [loading, setLoading] = useState(false);
@@ -88,9 +88,11 @@ export default function SearchOrders() {
         });
     };
 
+    useEffect(() => {
+        executeSearch('');
+    }, []);
+
     const executeSearch = async (queryToSearch: string) => {
-        if (!queryToSearch.trim()) return;
-        
         setLoading(true);
         setErrorMsg('');
         setHasSearched(true);
@@ -178,6 +180,7 @@ export default function SearchOrders() {
                         value={searchType}
                         onChange={(e) => setSearchType(e.target.value as SearchType)}
                     >
+                        <option value="all">🔍 All Fields</option>
                         <option value="orderId">Order ID</option>
                         <option value="customer">Customer Name</option>
                         <option value="astrologer">Astrologer Name</option>
