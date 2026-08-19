@@ -6,7 +6,7 @@ import { getCorrectTaxId, HSN_TAX_RATES } from '@/lib/tax';
 import { ordersService } from '@/services/orders';
 import { useSession } from 'next-auth/react';
 import { ProductCPMaster } from '@/lib/product-cp';
-import { Sparkles, Send, CheckCircle, FileText, RefreshCw, ShoppingCart, User, MapPin, AlertTriangle, Copy, Tag, Store, Truck, CreditCard, ShieldCheck } from 'lucide-react';
+import { Sparkles, Send, CheckCircle, FileText, RefreshCw, ShoppingCart, User, MapPin, AlertTriangle, Copy, Tag, Store, Truck, CreditCard, ShieldCheck, Edit2 } from 'lucide-react';
 import TaxInvoiceModal from './TaxInvoiceModal';
 
 interface ParsedItem {
@@ -121,7 +121,7 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
       setMissingFields(missing);
 
       setParsedOrder(parsed);
-      toast.success('✨ Order parsed! Adjust Payment Mode, Shipping & Taxes using toggles below.');
+      toast.success('✨ Order parsed! You can edit any field (Name, Phone, Address, Products, Price & CP) below.');
     } catch (err) {
       console.error(err);
       toast.error('Failed to parse text. Please check format.');
@@ -260,12 +260,70 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
     });
   };
 
+  // --- Inline Field Update Helpers ---
+  const updateCustomerField = (field: keyof ParsedOrder, val: any) => {
+    if (!parsedOrder) return;
+    setParsedOrder({ ...parsedOrder, [field]: val });
+  };
+
+  const updateItemName = (idx: number, name: string) => {
+    if (!parsedOrder) return;
+    const updatedItems = [...parsedOrder.items];
+    updatedItems[idx] = { ...updatedItems[idx], name };
+    setParsedOrder({ ...parsedOrder, items: updatedItems });
+  };
+
+  const updateItemQuantity = (idx: number, quantity: number) => {
+    if (!parsedOrder) return;
+    const updatedItems = [...parsedOrder.items];
+    const qty = Math.max(1, quantity);
+    const item = { ...updatedItems[idx], quantity: qty };
+    item.item_total = item.pre_tax_price * qty;
+    updatedItems[idx] = item;
+
+    const subtotal = updatedItems.reduce((acc, it) => acc + it.item_total, 0);
+    const tax_total = updatedItems.reduce((acc, it) => acc + (it.tax_amount * it.quantity), 0);
+    const grand_total = itemsGrandTotal(updatedItems, parsedOrder.shipping_charge, parsedOrder.cod_charge);
+
+    setParsedOrder({
+      ...parsedOrder,
+      items: updatedItems,
+      subtotal: Math.round(subtotal * 100) / 100,
+      tax_total: Math.round(tax_total * 100) / 100,
+      grand_total
+    });
+  };
+
+  const updateItemPrice = (idx: number, finalPrice: number) => {
+    if (!parsedOrder) return;
+    const updatedItems = [...parsedOrder.items];
+    const price = Math.max(0, finalPrice);
+    const item = { ...updatedItems[idx], final_price: price };
+
+    item.pre_tax_price = item.tax_rate > 0 ? Math.round((price / (1 + item.tax_rate / 100)) * 100) / 100 : price;
+    item.tax_amount = item.tax_rate > 0 ? Math.round((price - item.pre_tax_price) * 100) / 100 : 0;
+    item.item_total = item.pre_tax_price * item.quantity;
+
+    updatedItems[idx] = item;
+
+    const subtotal = updatedItems.reduce((acc, it) => acc + it.item_total, 0);
+    const tax_total = updatedItems.reduce((acc, it) => acc + (it.tax_amount * it.quantity), 0);
+    const grand_total = itemsGrandTotal(updatedItems, parsedOrder.shipping_charge, parsedOrder.cod_charge);
+
+    setParsedOrder({
+      ...parsedOrder,
+      items: updatedItems,
+      subtotal: Math.round(subtotal * 100) / 100,
+      tax_total: Math.round(tax_total * 100) / 100,
+      grand_total
+    });
+  };
+
   const updateItemCp = (idx: number, newCp: number) => {
     if (!parsedOrder) return;
     const updated = { ...parsedOrder };
     updated.items[idx].cost_price = newCp;
     setParsedOrder(updated);
-    toast.success(`Updated Cost Price for ${updated.items[idx].name} to ₹${newCp}`);
   };
 
   const applyMissingPromptFixes = () => {
@@ -397,39 +455,34 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-purple-900/40 border border-purple-500/30 p-6 rounded-2xl shadow-lg backdrop-blur-md">
-        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-purple-600/20 text-purple-400 rounded-xl border border-purple-500/30">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                AI Fast Order & Receipt Generator
-              </h2>
-              <p className="text-xs text-purple-200/80">
-                Simply copy-paste Name, Phone, Address & Items. Configure Payment Mode, Shipping & Product Taxes using on-screen toggles below!
-              </p>
-            </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20">
+              ✨ Fast AI Order Creation
+            </span>
+            <h2 className="text-xl font-bold text-white mt-2">Paste Order Details below</h2>
+            <p className="text-xs text-gray-300 mt-1 max-w-lg">
+              Paste customer WhatsApp messages or formatted order text. Edit any details directly below.
+            </p>
           </div>
-
           <button
             onClick={copyTemplateToClipboard}
-            className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-purple-800/40 hover:bg-purple-700/50 text-purple-200 text-xs font-semibold rounded-xl border border-purple-500/30 transition cursor-pointer"
           >
             <Copy className="w-3.5 h-3.5" />
-            <span>Copy Simple Format</span>
+            <span>Copy Format Template</span>
           </button>
         </div>
       </div>
 
-      {/* Interactive Control Knobs Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-[var(--bg-card)] border border-[var(--border)] p-4 rounded-2xl shadow-md">
+      {/* Controls Bar: Payment Mode, Shipping, Vendor & Discount */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-[var(--bg-card)] border border-[var(--border)] p-4 rounded-2xl shadow-sm">
         {/* Payment Mode Selector */}
         <div>
           <label className="text-xs font-bold text-[var(--text-primary)] block mb-1.5 flex items-center gap-1.5">
             <CreditCard className="w-4 h-4 text-purple-400" /> Payment Mode
           </label>
-          <div className="grid grid-cols-2 gap-1.5 bg-[var(--bg-input)] p-1 rounded-xl border border-[var(--border)]">
+          <div className="grid grid-cols-2 gap-1 bg-[var(--bg-input)] p-1 rounded-xl border border-[var(--border)]">
             <button
               type="button"
               onClick={() => handlePaymentModeToggle('Prepaid')}
@@ -626,13 +679,13 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
         </div>
       )}
 
-      {/* Generated Receipt Preview Card */}
+      {/* Generated Receipt Preview Card with Full Interactive Editing */}
       {parsedOrder && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4">
           <div className="p-5 bg-[var(--bg-section)] border-b border-[var(--border)] flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-[var(--accent)] font-bold text-base">
               <FileText className="w-5 h-5" />
-              <span>Parsed Customer Receipt & Tax Preview</span>
+              <span>Parsed Order & Interactive Editable Receipt</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30">
@@ -645,52 +698,122 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Customer Details Grid */}
+            {/* Interactive Editable Customer Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--bg-input)] p-4 rounded-xl border border-[var(--border)]">
-              <div>
+              <div className="space-y-2">
                 <span className="text-xs text-[var(--text-secondary)] font-medium block flex items-center gap-1">
-                  <User className="w-3.5 h-3.5" /> Customer Details (To)
+                  <User className="w-3.5 h-3.5 text-purple-400" /> Customer Name & Phone (Editable)
                 </span>
-                <strong className="text-sm text-[var(--text-primary)]">{parsedOrder.customer_name}</strong>
-                <span className="block text-xs text-[var(--text-secondary)] mt-1">📱 Phone: {parsedOrder.phone}</span>
-                {parsedOrder.astrologer_name && (
-                  <span className="block text-xs text-purple-400 font-semibold mt-1">
-                    🔮 Partner Astrologer (From): {parsedOrder.astrologer_name} {parsedOrder.astrologer_phone ? `(${parsedOrder.astrologer_phone})` : ''}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={parsedOrder.customer_name}
+                    onChange={(e) => updateCustomerField('customer_name', e.target.value)}
+                    placeholder="Customer Name"
+                    className="w-full p-1.5 font-bold text-xs bg-purple-950/60 border border-purple-500/40 rounded-lg text-white outline-none focus:ring-1 focus:ring-purple-400"
+                  />
+                  <input
+                    type="text"
+                    value={parsedOrder.phone}
+                    onChange={(e) => updateCustomerField('phone', e.target.value)}
+                    placeholder="Phone Number"
+                    className="w-36 p-1.5 text-xs bg-purple-950/60 border border-purple-500/40 rounded-lg text-white outline-none font-mono focus:ring-1 focus:ring-purple-400"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <span className="text-[11px] text-purple-400 font-semibold block mb-1">
+                    🔮 Partner Astrologer (From):
                   </span>
-                )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={parsedOrder.astrologer_name || ''}
+                      onChange={(e) => updateCustomerField('astrologer_name', e.target.value)}
+                      placeholder="Astrologer Name (Optional)"
+                      className="w-full p-1 text-xs bg-purple-950/40 border border-purple-500/30 rounded text-purple-200 outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={parsedOrder.astrologer_phone || ''}
+                      onChange={(e) => updateCustomerField('astrologer_phone', e.target.value)}
+                      placeholder="Astrologer Phone"
+                      className="w-32 p-1 text-xs bg-purple-950/40 border border-purple-500/30 rounded text-purple-200 outline-none font-mono"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
+
+              <div className="space-y-2">
                 <span className="text-xs text-[var(--text-secondary)] font-medium block flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> Shipping Address
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" /> Shipping Address & Location (Editable)
                 </span>
-                <p className="text-xs text-[var(--text-primary)] leading-tight">{parsedOrder.address}</p>
-                <span className="block text-xs text-[var(--text-secondary)] mt-0.5">
-                  {parsedOrder.city}, {parsedOrder.state} - {parsedOrder.pincode}
-                </span>
+                <input
+                  type="text"
+                  value={parsedOrder.address}
+                  onChange={(e) => updateCustomerField('address', e.target.value)}
+                  placeholder="Shipping Address"
+                  className="w-full p-1.5 text-xs bg-purple-950/60 border border-purple-500/40 rounded-lg text-white outline-none focus:ring-1 focus:ring-amber-400"
+                />
+                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                  <input
+                    type="text"
+                    value={parsedOrder.city}
+                    onChange={(e) => updateCustomerField('city', e.target.value)}
+                    placeholder="City"
+                    className="p-1 text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={parsedOrder.state}
+                    onChange={(e) => updateCustomerField('state', e.target.value)}
+                    placeholder="State"
+                    className="p-1 text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={parsedOrder.pincode}
+                    onChange={(e) => updateCustomerField('pincode', e.target.value)}
+                    placeholder="Pincode"
+                    className="p-1 text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none font-mono"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Line Items Table with Category & Tax Rate Override Selector */}
+            {/* Line Items Table with Editable Name, Qty, Selling Price & Internal CP */}
             <div>
-              <h4 className="text-xs uppercase font-bold text-[var(--text-secondary)] mb-3 flex items-center gap-1.5">
-                <ShoppingCart className="w-4 h-4 text-[var(--accent)]" /> Line Items & Category Tax Rate Selector
+              <h4 className="text-xs uppercase font-bold text-[var(--text-secondary)] mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShoppingCart className="w-4 h-4 text-[var(--accent)]" /> Edit Products, Prices & Supplier CP Below
+                </span>
+                <span className="text-[10px] text-amber-400 font-normal">
+                  🔒 Internal CP is hidden from Customer Invoice PDF
+                </span>
               </h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
                     <tr className="bg-[var(--bg-section)] text-[var(--text-secondary)] uppercase border-b border-[var(--border)]">
-                      <th className="p-2.5">Item Name</th>
+                      <th className="p-2.5">Product Name (Editable)</th>
                       <th className="p-2.5">Category & GST Tax Rate</th>
-                      <th className="p-2.5 text-center">Qty</th>
-                      <th className="p-2.5 text-right">Selling Price</th>
-                      <th className="p-2.5 text-right">{selectedVendor} CP</th>
-                      <th className="p-2.5 text-right">Final Total</th>
+                      <th className="p-2.5 text-center w-16">Qty</th>
+                      <th className="p-2.5 text-right w-24">Selling Price (₹)</th>
+                      <th className="p-2.5 text-right w-24">{selectedVendor} CP (₹)</th>
+                      <th className="p-2.5 text-right w-24">Final Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
                     {parsedOrder.items.map((it, idx) => (
                       <tr key={idx} className="hover:bg-[var(--bg-hover)]">
-                        <td className="p-2.5 font-semibold text-[var(--text-primary)]">{it.name}</td>
+                        <td className="p-2.5">
+                          <input
+                            type="text"
+                            value={it.name}
+                            onChange={(e) => updateItemName(idx, e.target.value)}
+                            className="w-full p-1.5 font-bold text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        </td>
                         <td className="p-2.5">
                           <select
                             value={
@@ -709,20 +832,35 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
                             <option value="services">🔮 Astrological Services (18% GST)</option>
                           </select>
                         </td>
-                        <td className="p-2.5 text-center font-bold">{it.quantity}</td>
-                        <td className="p-2.5 text-right font-medium text-emerald-400">₹{it.final_price.toFixed(2)}</td>
-                        <td className="p-2.5 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <span className="text-[10px] text-gray-400">₹</span>
-                            <input
-                              type="number"
-                              value={it.cost_price}
-                              onChange={(e) => updateItemCp(idx, Number(e.target.value))}
-                              className="w-16 p-1 rounded border border-purple-500/40 bg-purple-950/60 text-right font-bold text-amber-300 outline-none"
-                            />
-                          </div>
+                        <td className="p-2.5 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            value={it.quantity}
+                            onChange={(e) => updateItemQuantity(idx, Number(e.target.value))}
+                            className="w-12 p-1 text-center font-bold text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none"
+                          />
                         </td>
-                        <td className="p-2.5 text-right font-bold text-[var(--text-primary)]">₹{(it.final_price * it.quantity).toFixed(2)}</td>
+                        <td className="p-2.5 text-right">
+                          <input
+                            type="number"
+                            min="0"
+                            value={it.final_price}
+                            onChange={(e) => updateItemPrice(idx, Number(e.target.value))}
+                            className="w-20 p-1 text-right font-bold text-xs bg-purple-950/60 border border-emerald-500/40 text-emerald-400 rounded outline-none"
+                          />
+                        </td>
+                        <td className="p-2.5 text-right">
+                          <input
+                            type="number"
+                            value={it.cost_price}
+                            onChange={(e) => updateItemCp(idx, Number(e.target.value))}
+                            className="w-16 p-1 text-right font-bold text-xs bg-purple-950/60 border border-amber-500/40 text-amber-300 rounded outline-none"
+                          />
+                        </td>
+                        <td className="p-2.5 text-right font-bold text-[var(--text-primary)]">
+                          ₹{(it.final_price * it.quantity).toFixed(2)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -783,7 +921,7 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
                 ) : isTestMode ? (
                   <span>🧪 Generate Test Invoice</span>
                 ) : (
-                  <span>🚀 Confirm & Save Order to Database</span>
+                  <span>🚀 Confirm & Generate Invoice</span>
                 )}
               </button>
             </div>
