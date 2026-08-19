@@ -34,14 +34,9 @@ export async function GET(request: NextRequest) {
 
     const rawOrders = Array.from(orderMap.values());
 
-    // Normalize salesperson names according to user rules:
-    // - Change Rajveer -> Muskan
-    // - Change Other/Others -> Tannu
-    // - Remove Muskan Sharma (map Muskan Sharma -> Muskan)
+    // Clean trimmed salesperson names (exact raw salesperson matching)
     const allOrders = rawOrders.map(o => {
-      let sp = (o.salespersonName || '').trim();
-      if (sp === 'Rajveer' || sp === 'Muskan Sharma') sp = 'Muskan';
-      if (sp === 'Other' || sp === 'Others') sp = 'Tannu';
+      const sp = (o.salespersonName || '').trim();
       return { ...o, salespersonName: sp };
     });
 
@@ -62,9 +57,7 @@ export async function GET(request: NextRequest) {
 
       if (custKey && !clientOnboarderMap[custKey]) {
         const oDate = new Date(o.createdAt || o.invoiceDate || new Date());
-        let onboarder = (o.salespersonName || 'Direct').trim();
-        if (onboarder === 'Muskan Sharma' || onboarder === 'Rajveer') onboarder = 'Muskan';
-        if (onboarder === 'Other' || onboarder === 'Others') onboarder = 'Tannu';
+        const onboarder = (o.salespersonName || 'Direct').trim();
 
         clientOnboarderMap[custKey] = {
           onboardedBy: onboarder,
@@ -155,21 +148,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Extract all unique salespersons (excluding 'Muskan Sharma')
+    // Extract unique active salespersons
     const availableSalespersons = Array.from(
       new Set(allOrders.map(o => o.salespersonName).filter(Boolean))
     )
-      .filter(sp => sp !== 'Muskan Sharma')
+      .filter(sp => sp !== 'UNASSIGNED')
       .sort();
 
-    // Filter by salesperson if selected (and not "all")
+    // Filter by salesperson if selected (exact strict match)
     let targetOrders = allOrders;
     const isFilteredBySalesperson = salespersonFilter && salespersonFilter.toLowerCase() !== 'all' && salespersonFilter !== 'All Sales Executives';
     if (isFilteredBySalesperson) {
-      const spLower = salespersonFilter.toLowerCase();
+      const spTarget = salespersonFilter.trim().toLowerCase();
       targetOrders = allOrders.filter(o => {
-        const sp = (o.salespersonName || '').toLowerCase();
-        return sp.includes(spLower) || spLower.includes(sp);
+        const sp = (o.salespersonName || '').trim().toLowerCase();
+        return sp === spTarget;
       });
     }
 
@@ -229,9 +222,9 @@ export async function GET(request: NextRequest) {
     let onboardedRevenueLifetime = 0;
 
     if (isFilteredBySalesperson) {
-      const spTarget = salespersonFilter.toLowerCase();
+      const spTarget = salespersonFilter.trim().toLowerCase();
       Object.values(clientOnboarderMap).forEach(info => {
-        if (info.onboardedBy.toLowerCase().includes(spTarget) || spTarget.includes(info.onboardedBy.toLowerCase())) {
+        if (info.onboardedBy.trim().toLowerCase() === spTarget) {
           onboardedClientsLifetime++;
           onboardedRevenueLifetime += info.firstOrderRevenue;
 
@@ -360,9 +353,7 @@ export async function GET(request: NextRequest) {
       const custName = o.customerDetails?.customer_name?.trim() || 'Direct Client';
       const custPhone = o.customerDetails?.phone?.trim() || 'N/A';
       const custKey = (custPhone && custPhone !== 'N/A') ? custPhone : custName.toLowerCase();
-      let onboardedBy = clientOnboarderMap[custKey]?.onboardedBy || o.salespersonName || 'Direct';
-      if (onboardedBy === 'Muskan Sharma' || onboardedBy === 'Rajveer') onboardedBy = 'Muskan';
-      if (onboardedBy === 'Other' || onboardedBy === 'Others') onboardedBy = 'Tannu';
+      const onboardedBy = clientOnboarderMap[custKey]?.onboardedBy || o.salespersonName || 'Direct';
 
       if (!customerMap[custKey]) {
         customerMap[custKey] = {
