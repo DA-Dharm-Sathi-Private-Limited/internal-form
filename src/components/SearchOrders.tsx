@@ -119,21 +119,32 @@ export default function SearchOrders() {
         if (!orderId) return;
         setDownloadingInvoiceFor(orderId);
         try {
-            const res = await zohoService.getInvoicePdf(orderId);
+            const res = await fetch(`/api/invoices/${orderId}/pdf`);
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Failed to download invoice');
             }
-            
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `invoice-${orderId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+                const text = await res.text();
+                const blob = new Blob([text], { type: 'text/html' });
+                const url = window.URL.createObjectURL(blob);
+                const win = window.open(url, '_blank');
+                if (!win) {
+                    window.location.href = url;
+                }
+            } else {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `invoice-${orderId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            }
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Unknown error');
         } finally {

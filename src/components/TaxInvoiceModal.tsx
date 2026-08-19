@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import Image from 'next/image';
+import { toast } from 'sonner';
 
 interface TaxInvoiceModalProps {
   order: {
@@ -69,24 +69,34 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
 
   const handleDownloadPDF = async () => {
     if (onDownloadPDF) {
-      onDownloadPDF();
+      try {
+        await onDownloadPDF();
+      } catch (err) {
+        console.error('onDownloadPDF callback error:', err);
+      }
     }
+
     if (!printRef.current) return;
+    toast.info('Generating & Downloading Tax Invoice PDF...');
+
     try {
       const html2pdfModule = await import('html2pdf.js');
       const html2pdf = html2pdfModule.default || html2pdfModule;
 
-      const opt = {
+      const element = printRef.current;
+      const opt: any = {
         margin: 5,
         filename: `tax-invoice-${invoiceNo}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, allowTaint: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opt).from(printRef.current).save();
+      await html2pdf().set(opt).from(element).save();
+      toast.success('🎉 Tax Invoice PDF downloaded successfully!');
     } catch (e) {
-      console.error(e);
+      console.error('html2pdf failed, falling back to window.print():', e);
+      toast.info('Opening print dialog to Save as PDF...');
       window.print();
     }
   };
@@ -99,21 +109,23 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
   };
 
   // Group line items and calculate taxes dynamically
-  const preTaxSubtotal = order.items.reduce((acc, it) => acc + (it.pre_tax_price * it.quantity), 0) + 84.75;
+  const preTaxSubtotal = order.items.reduce((acc, it) => acc + (it.pre_tax_price * it.quantity), 0) + (order.shipping_charge > 0 ? 84.75 : 0);
   
   const taxBreakdownMap: Record<number, number> = {};
   order.items.forEach(it => {
     if (it.tax_rate > 0) {
-      taxBreakdownMap[it.tax_rate] = (taxBreakdownMap[it.tax_rate] || 0) + it.tax_amount;
+      taxBreakdownMap[it.tax_rate] = (taxBreakdownMap[it.tax_rate] || 0) + (it.tax_amount * it.quantity);
     }
   });
-  taxBreakdownMap[18] = (taxBreakdownMap[18] || 0) + 15.25;
+  if (order.shipping_charge > 0) {
+    taxBreakdownMap[18] = (taxBreakdownMap[18] || 0) + 15.25;
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white text-gray-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white text-gray-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Modal Top Actions */}
-        <div className="p-4 bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
+        <div className="p-4 bg-gray-900 text-white flex items-center justify-between border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-2 font-bold text-sm">
             <span>📄 Official Tax Invoice Preview</span>
           </div>
@@ -128,7 +140,7 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
               onClick={handlePrint}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
             >
-              🖨️ Print
+              🖨️ Print / Save PDF
             </button>
             <button
               onClick={onClose}
@@ -140,18 +152,17 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
         </div>
 
         {/* Invoice Printable Sheet */}
-        <div className="p-6 overflow-y-auto flex-1 bg-white">
-          <div ref={printRef} className="p-6 bg-white text-gray-900 border border-gray-300 font-sans text-xs space-y-4">
+        <div className="p-6 overflow-y-auto flex-1 bg-gray-100">
+          <div ref={printRef} className="p-6 bg-white text-gray-900 border border-gray-300 font-sans text-xs space-y-4 shadow-sm rounded-lg">
             
             {/* Invoice Header */}
             <div className="flex justify-between items-start border-b border-gray-300 pb-4">
               <div className="flex items-center gap-4">
-                <Image
+                {/* Standard HTML img for html2canvas compatibility */}
+                <img
                   src="/hp_logo.png"
                   alt="HUMARA PANDIT"
-                  width={140}
-                  height={50}
-                  className="object-contain"
+                  style={{ width: '140px', height: 'auto', objectFit: 'contain' }}
                 />
                 <div>
                   <h1 className="font-extrabold text-base tracking-tight text-gray-900">D A Dharm Sathi Private Limited</h1>
@@ -174,13 +185,13 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
                 <p><span className="font-bold text-gray-700">Terms :</span> Due on Receipt</p>
               </div>
               <div className="p-2 space-y-1">
-                <p><span className="font-bold text-gray-700">Place Of Supply :</span> {order.state || 'Punjab'} (03)</p>
+                <p><span className="font-bold text-gray-700">Place Of Supply :</span> {order.state || 'Punjab'}</p>
                 <p><span className="font-bold text-gray-700">Phone Number :</span> +91{order.phone}</p>
               </div>
             </div>
 
             {/* Customer & Partner Box */}
-            <div className="border border-gray-300 p-2 bg-gray-50 text-[11px] flex justify-between items-start">
+            <div className="border border-gray-300 p-3 bg-gray-50 text-[11px] flex justify-between items-start rounded">
               <div>
                 <span className="text-[10px] text-gray-500 uppercase font-bold block">Bill To / Ship To</span>
                 <p className="font-extrabold text-sm text-gray-900">{order.customer_name}</p>
@@ -219,28 +230,30 @@ export default function TaxInvoiceModal({ order, onClose, onDownloadPDF }: TaxIn
                       <td className="p-2 border-r border-gray-300 text-center">{it.quantity}.00</td>
                       <td className="p-2 border-r border-gray-300 text-right">{it.pre_tax_price.toFixed(2)}</td>
                       <td className="p-2 border-r border-gray-300 text-center">{it.tax_rate}%</td>
-                      <td className="p-2 border-r border-gray-300 text-right">{it.tax_amount.toFixed(2)}</td>
+                      <td className="p-2 border-r border-gray-300 text-right">{(it.tax_amount * it.quantity).toFixed(2)}</td>
                       <td className="p-2 text-right font-bold">{lineTotal}</td>
                     </tr>
                   );
                 })}
 
                 {/* Delivery Charges Line Item */}
-                <tr>
-                  <td className="p-2 border-r border-gray-300 text-center">{order.items.length + 1}</td>
-                  <td className="p-2 border-r border-gray-300 font-medium text-gray-900">Delivery Charges</td>
-                  <td className="p-2 border-r border-gray-300 text-center font-mono">996812</td>
-                  <td className="p-2 border-r border-gray-300 text-center">1.00</td>
-                  <td className="p-2 border-r border-gray-300 text-right">84.75</td>
-                  <td className="p-2 border-r border-gray-300 text-center">18%</td>
-                  <td className="p-2 border-r border-gray-300 text-right">15.25</td>
-                  <td className="p-2 text-right font-bold">100.00</td>
-                </tr>
+                {order.shipping_charge > 0 && (
+                  <tr>
+                    <td className="p-2 border-r border-gray-300 text-center">{order.items.length + 1}</td>
+                    <td className="p-2 border-r border-gray-300 font-medium text-gray-900">Delivery Charges</td>
+                    <td className="p-2 border-r border-gray-300 text-center font-mono">996812</td>
+                    <td className="p-2 border-r border-gray-300 text-center">1.00</td>
+                    <td className="p-2 border-r border-gray-300 text-right">84.75</td>
+                    <td className="p-2 border-r border-gray-300 text-center">18%</td>
+                    <td className="p-2 border-r border-gray-300 text-right">15.25</td>
+                    <td className="p-2 text-right font-bold">100.00</td>
+                  </tr>
+                )}
 
                 {/* COD Charges Line Item */}
                 {order.cod_charge > 0 && (
                   <tr>
-                    <td className="p-2 border-r border-gray-300 text-center">{order.items.length + 2}</td>
+                    <td className="p-2 border-r border-gray-300 text-center">{order.items.length + (order.shipping_charge > 0 ? 2 : 1)}</td>
                     <td className="p-2 border-r border-gray-300 font-medium text-gray-900">COD Fee</td>
                     <td className="p-2 border-r border-gray-300 text-center font-mono">996812</td>
                     <td className="p-2 border-r border-gray-300 text-center">1.00</td>

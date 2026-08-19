@@ -37,10 +37,17 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
                 const blob = new Blob([dummyContent], { type: 'text/plain' });
                 downloadBlob(blob, `invoice-${formData.orderId}.txt`);
             } else {
-                const res = await zohoService.getInvoicePdf(formData.invoiceId);
+                const res = await fetch(`/api/invoices/${formData.invoiceId}/pdf`);
                 if (!res.ok) throw new Error('Failed to download invoice pdf');
-                const blob = await res.blob();
-                downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
+                const contentType = res.headers.get('content-type') || '';
+                if (contentType.includes('text/html')) {
+                    const text = await res.text();
+                    const blob = new Blob([text], { type: 'text/html' });
+                    downloadBlob(blob, `invoice-${formData.orderId}.html`);
+                } else {
+                    const blob = await res.blob();
+                    downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
+                }
             }
 
             // 2. Save Order to Database ONLY upon Invoice Download
