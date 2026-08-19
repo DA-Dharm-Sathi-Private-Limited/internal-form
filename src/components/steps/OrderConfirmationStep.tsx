@@ -31,23 +31,16 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
 
         try {
             // 1. Download Invoice PDF
-            if (formData.invoiceId.startsWith('TEST-')) {
-                // Test mode dummy blob download
-                const dummyContent = `Humara Pandit Test Invoice ${formData.orderId}`;
-                const blob = new Blob([dummyContent], { type: 'text/plain' });
-                downloadBlob(blob, `invoice-${formData.orderId}.txt`);
+            const res = await fetch(`/api/invoices/${formData.invoiceId}/pdf`);
+            if (!res.ok) throw new Error('Failed to download invoice pdf');
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+                const text = await res.text();
+                const blob = new Blob([text], { type: 'text/html' });
+                downloadBlob(blob, `invoice-${formData.orderId}.html`);
             } else {
-                const res = await fetch(`/api/invoices/${formData.invoiceId}/pdf`);
-                if (!res.ok) throw new Error('Failed to download invoice pdf');
-                const contentType = res.headers.get('content-type') || '';
-                if (contentType.includes('text/html')) {
-                    const text = await res.text();
-                    const blob = new Blob([text], { type: 'text/html' });
-                    downloadBlob(blob, `invoice-${formData.orderId}.html`);
-                } else {
-                    const blob = await res.blob();
-                    downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
-                }
+                const blob = await res.blob();
+                downloadBlob(blob, `invoice-${formData.orderId}.pdf`);
             }
 
             // 2. Save Order to Database ONLY upon Invoice Download

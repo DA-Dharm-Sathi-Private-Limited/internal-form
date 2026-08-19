@@ -337,7 +337,7 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
     toast.success('Updated missing customer details on receipt!');
   };
 
-  const [isTestMode, setIsTestMode] = useState(true);
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleCreateOrder = async () => {
     if (!parsedOrder) return;
@@ -347,17 +347,8 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
       const salesperson = session?.user?.name || 'Muskan';
 
       const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
-      const generatedOrderId = `HP-INV-${Date.now().toString().slice(-6)}-${uniqueSuffix}`;
-      const generatedZohoId = `zoho_${Date.now()}`;
-
-      if (isTestMode) {
-        setCreatedResult({
-          orderId: `TEST-${generatedOrderId}`,
-          invoiceId: `TEST-ZOHO-${Date.now()}`
-        });
-        toast.info('🧪 Test Mode Active: Invoice generated for preview!');
-        return;
-      }
+      const generatedOrderId = isTestMode ? `TEST-HP-INV-${Date.now().toString().slice(-6)}-${uniqueSuffix}` : `HP-INV-${Date.now().toString().slice(-6)}-${uniqueSuffix}`;
+      const generatedZohoId = isTestMode ? `TEST-ZOHO-${Date.now()}` : `zoho_${Date.now()}`;
 
       const finalLineItems = parsedOrder.items.map(it => ({
         name: it.name,
