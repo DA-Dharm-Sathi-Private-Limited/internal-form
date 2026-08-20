@@ -318,8 +318,8 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
         </div>
         <div className="form-group">
           <label>Address *</label>
-          <input className="form-input" value={formData.address}
-            onChange={(e) => updateForm({ address: e.target.value })} placeholder="123 Street Name" />
+          <textarea className="form-input min-h-[70px] resize-y" value={formData.address}
+            onChange={(e) => updateForm({ address: e.target.value })} placeholder="Enter complete address (unlimited words)" rows={2} />
         </div>
         <div className="form-group relative">
           <label>Pincode *</label>
