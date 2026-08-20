@@ -273,7 +273,7 @@ export async function searchCustomers(query: string) {
     const headers = await zohoHeaders();
 
     const params = new URLSearchParams({
-        display_name_contains: query,
+        search_text: query,
         per_page: '10',
     });
 
