@@ -73,17 +73,23 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
 
         try {
             if (isTestMode) {
-                // Dry-run mode for local testing
-                const mockInvoiceId = `TEST-ZOHO-${Date.now()}`;
-                const mockInvoiceNumber = `TEST-INV-${Math.floor(1000 + Math.random() * 9000)}`;
-                
+                // Dry-run mode using next sequential invoice number from DB
+                let nextInvNum = `INV-001130`;
+                try {
+                    const resNum = await fetch('/api/invoices/next-number');
+                    const dataNum = await resNum.json();
+                    if (dataNum.invoiceNumber) nextInvNum = dataNum.invoiceNumber;
+                } catch (e) {
+                    console.warn('Failed to fetch next invoice number:', e);
+                }
+
                 updateForm({
-                    invoiceId: mockInvoiceId,
-                    orderId: mockInvoiceNumber,
+                    invoiceId: nextInvNum,
+                    orderId: nextInvNum,
                     isSavedToDb: false
                 });
                 
-                toast.info('🧪 Test Mode: Invoice preview generated! (Will save to database only if Invoice is Downloaded)');
+                toast.info(`🧪 Preview generated for ${nextInvNum}! (Will save to database when Invoice is Downloaded)`);
                 onNext();
                 return;
             }
