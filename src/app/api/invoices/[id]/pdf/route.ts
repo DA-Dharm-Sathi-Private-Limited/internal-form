@@ -5,6 +5,8 @@ import Order from '@/models/Order';
 import mongoose from 'mongoose';
 import { withError, fail } from '@/lib/api-handler';
 import { HSN_TAX_RATES } from '@/lib/tax';
+import fs from 'fs';
+import path from 'path';
 
 function numberToWordsIndian(num: number): string {
   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -50,7 +52,20 @@ function getTaxPercentageForItem(it: any): number {
   if (HSN_TAX_RATES[hsn] !== undefined) {
     return HSN_TAX_RATES[hsn];
   }
-  return 3; // Default 3% for bracelets/malas
+  return 3;
+}
+
+function getBase64Image(filename: string): string {
+  try {
+    const filePath = path.join(process.cwd(), 'public', filename);
+    if (fs.existsSync(filePath)) {
+      const buffer = fs.readFileSync(filePath);
+      return `data:image/png;base64,${buffer.toString('base64')}`;
+    }
+  } catch (e) {
+    console.warn(`Failed to load ${filename}:`, e);
+  }
+  return '';
 }
 
 function generateHtmlInvoice(order: any): string {
@@ -72,11 +87,13 @@ function generateHtmlInvoice(order: any): string {
   let subtotalSum = 0;
   let taxSum = 0;
 
+  const logoBase64 = getBase64Image('receipt-logo.png') || getBase64Image('hp_logo.png');
+  const qrBase64 = getBase64Image('payment-qr-card.png');
+
   const rows = items.map((it: any, idx: number) => {
     const qty = it.quantity || 1;
     const finalTotal = (it.final_price || it.rate || 0) * qty;
     
-    // Tax percentage determined exactly as in Zoho
     const taxRate = getTaxPercentageForItem(it);
     const pretaxRate = taxRate > 0 ? finalTotal / (1 + taxRate / 100) : finalTotal;
     const lineTax = finalTotal - pretaxRate;
@@ -274,15 +291,21 @@ function generateHtmlInvoice(order: any): string {
       font-size: 14px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .qr-placeholder {
-      width: 80px;
-      height: 80px;
-      background: #f3f4f6;
-      border: 1px solid #9ca3af;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 12px;
+    .qr-card-box {
+      margin-top: 16px;
+      text-align: center;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .qr-card-img {
+      max-width: 180px;
+      width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      border-radius: 4px;
     }
     @media print {
       body { background: #ffffff; padding: 0; }
@@ -303,14 +326,16 @@ function generateHtmlInvoice(order: any): string {
     <table class="header-table">
       <tr>
         <td style="width: 60%;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="text-align: center;">
-              <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M50 5C50 5 65 30 65 50C65 70 50 80 50 80C50 80 35 70 35 50C35 30 50 5 50 5Z" fill="#D97706"/>
-                <path d="M50 20C50 20 60 40 60 55C60 70 50 75 50 75C50 75 40 70 40 55C40 40 50 20 50 20Z" fill="#F59E0B"/>
-                <circle cx="50" cy="85" r="5" fill="#DC2626"/>
-              </svg>
-              <div style="font-weight: 800; font-size: 11px; color: #b45309; letter-spacing: 0.5px;">HUMARA PANDIT</div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="text-align: center; background: #ffffff; padding: 4px; border-radius: 8px;">
+              ${logoBase64 ? `<img src="${logoBase64}" alt="HUMARA PANDIT" style="height: 58px; width: auto; object-fit: contain;" />` : `
+                <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M50 5C50 5 65 30 65 50C65 70 50 80 50 80C50 80 35 70 35 50C35 30 50 5 50 5Z" fill="#D97706"/>
+                  <path d="M50 20C50 20 60 40 60 55C60 70 50 75 50 75C50 75 40 70 40 55C40 40 50 20 50 20Z" fill="#F59E0B"/>
+                  <circle cx="50" cy="85" r="5" fill="#DC2626"/>
+                </svg>
+              `}
+              <div style="font-weight: 800; font-size: 11px; color: #b45309; letter-spacing: 0.5px; margin-top: 2px;">HUMARA PANDIT</div>
             </div>
             <div>
               <div class="company-title">D A Dharm Sathi Private Limited</div>
@@ -377,11 +402,11 @@ function generateHtmlInvoice(order: any): string {
       </tbody>
     </table>
 
-    <!-- Bottom Section (Total in Words, Policy, Totals Table) -->
+    <!-- Bottom Section (Total in Words, Policy, Totals Table, Scan & Pay QR) -->
     <table class="bottom-grid">
       <tr>
         <!-- Left Side: Total in words & Return Policy -->
-        <td style="width: 58%; padding-right: 20px;">
+        <td style="width: 55%; padding-right: 20px;">
           
           <div style="margin-bottom: 16px;">
             <div style="font-weight: 700; font-size: 12px;">Total In Words</div>
@@ -398,22 +423,10 @@ function generateHtmlInvoice(order: any): string {
             <div><strong>3.) Policy Enforcement:</strong> Claims submitted after 48 hours or lacking the complete, unedited video will be automatically rejected. Placing an order constitutes agreement to these terms.</div>
           </div>
 
-          <div class="qr-placeholder">
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="7" height="7"/>
-              <rect x="14" y="3" width="7" height="7"/>
-              <rect x="3" y="14" width="7" height="7"/>
-              <rect x="5" y="5" width="3" height="3" fill="currentColor"/>
-              <rect x="16" y="5" width="3" height="3" fill="currentColor"/>
-              <rect x="5" y="16" width="3" height="3" fill="currentColor"/>
-              <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 19h3v2h-3z"/>
-            </svg>
-          </div>
-
         </td>
 
-        <!-- Right Side: Totals Summary Box -->
-        <td style="width: 42%;">
+        <!-- Right Side: Totals Summary & Payment QR Code -->
+        <td style="width: 45%;">
           <table class="totals-table">
             <tr>
               <td style="color: #4b5563;">Sub Total</td>
@@ -428,6 +441,12 @@ function generateHtmlInvoice(order: any): string {
               <td>₹${grandTotalFormatted}</td>
             </tr>
           </table>
+
+          ${qrBase64 ? `
+            <div class="qr-card-box">
+              <img src="${qrBase64}" alt="Scan & Pay UPI QR Code" class="qr-card-img" />
+            </div>
+          ` : ''}
         </td>
       </tr>
     </table>
