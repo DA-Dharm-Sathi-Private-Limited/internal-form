@@ -529,26 +529,41 @@ export async function fetchInvoiceSettings() {
 }
 
 /**
- * Sanitizes address fields without truncating characters or words.
+ * Sanitizes and intelligently splits address fields into 95-character word-boundary lines
+ * to comply with Zoho Billing's strict 100-character limit per address field.
  */
 export function sanitizeZohoAddress(addr: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
     if (!addr || typeof addr !== 'object') return addr;
 
     const rawLine1 = String(addr.address || addr.street || '').trim();
     const rawLine2 = String(addr.street2 || addr.address2 || '').trim();
+    const combined = [rawLine1, rawLine2].filter(Boolean).join(', ');
+
+    let address = '';
+    let street2 = '';
+
+    if (combined.length > 95) {
+        let breakIdx = combined.lastIndexOf(' ', 95);
+        if (breakIdx < 20) breakIdx = 95;
+        address = combined.slice(0, breakIdx).trim();
+        street2 = combined.slice(breakIdx).trim().slice(0, 95);
+    } else {
+        address = rawLine1.slice(0, 95);
+        street2 = rawLine2.slice(0, 95);
+    }
 
     const clean: Record<string, unknown> = {};
-    if (rawLine1) clean.address = rawLine1;
-    if (rawLine2) clean.street2 = rawLine2;
+    if (address) clean.address = address;
+    if (street2) clean.street2 = street2;
 
-    if (addr.attention) clean.attention = String(addr.attention).trim();
-    if (addr.city) clean.city = String(addr.city).trim();
-    if (addr.state) clean.state = String(addr.state).trim();
-    if (addr.state_code) clean.state_code = String(addr.state_code).trim();
-    if (addr.zip || addr.pincode) clean.zip = String(addr.zip || addr.pincode).trim();
-    if (addr.country) clean.country = String(addr.country).trim();
-    if (addr.phone) clean.phone = String(addr.phone).trim();
-    if (addr.fax) clean.fax = String(addr.fax).trim();
+    if (addr.attention) clean.attention = String(addr.attention).slice(0, 95).trim();
+    if (addr.city) clean.city = String(addr.city).slice(0, 95).trim();
+    if (addr.state) clean.state = String(addr.state).slice(0, 95).trim();
+    if (addr.state_code) clean.state_code = String(addr.state_code).slice(0, 50).trim();
+    if (addr.zip || addr.pincode) clean.zip = String(addr.zip || addr.pincode).slice(0, 50).trim();
+    if (addr.country) clean.country = String(addr.country).slice(0, 95).trim();
+    if (addr.phone) clean.phone = String(addr.phone).slice(0, 50).trim();
+    if (addr.fax) clean.fax = String(addr.fax).slice(0, 50).trim();
 
     return clean;
 }
