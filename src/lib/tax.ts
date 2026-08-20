@@ -4,204 +4,180 @@ import { InvoiceItem, ZohoTax } from '@/types/invoice';
 // GST Tax Selection — Simple HSN + Inter/Intra Map
 // ============================================================
 
-// Single source of truth for our registered GST state
 const BUSINESS_STATE_NAME = 'Haryana';
-
 const BUSINESS_STATE_CODES = ['HR', '06', 'HARYANA'];
 
 const normalizeState = (value: string | undefined | null): string => {
-    return (value || '').trim().toUpperCase();
+  return (value || '').trim().toUpperCase();
 };
 
 const isSameStateAsBusiness = (value: string | undefined | null): boolean => {
-    const norm = normalizeState(value);
-    if (!norm) return false;
-    if (BUSINESS_STATE_CODES.includes(norm)) return true;
-    return norm === BUSINESS_STATE_NAME.toUpperCase();
+  const norm = normalizeState(value);
+  if (!norm) return false;
+  if (BUSINESS_STATE_CODES.includes(norm)) return true;
+  return norm === BUSINESS_STATE_NAME.toUpperCase();
 };
 
-/**
- * Determine if an order should be treated as interstate.
- * Accepts either a full state name (e.g. "Haryana") or state code ("HR", "06").
- */
 export const isInterstateOrder = (customerStateOrCode: string | undefined | null): boolean => {
-    if (!customerStateOrCode) return true; // safest default — stricter tax (IGST) for unknown
-    return !isSameStateAsBusiness(customerStateOrCode);
+  if (!customerStateOrCode) return true;
+  return !isSameStateAsBusiness(customerStateOrCode);
 };
 
-// ============================================================
-// THE MAP  —  HSN → { inter tax_id, intra tax_id }
-// This is the ONLY source of truth for tax selection.
-// ============================================================
+// Smart Tax Categorization helper for products (Rudraksha, Gemstones, Bracelets, Vastu)
+export function getItemTaxRateAndHsn(name: string = '', hsn: string = '', taxPct?: number) {
+  const cleanName = name.toLowerCase();
+
+  // 1. Rudraksha / Rudraksh Malas / Tulsi / Puja items -> 0% Tax (EXEMPT under GST)
+  if (/rudraksh|rudraksha|tulsi|pooja|puja|14049070|999591/i.test(cleanName) || hsn === '14049070' || hsn === '999591') {
+    return { taxRate: 0, hsn: hsn || '14049070', label: '0%' };
+  }
+
+  // 2. Precious / Semi-Precious Gemstones -> 0.25% Tax
+  if (/ruby|sapphire|emerald|panna|manik|neelam|pukhraj|hessonite|gomed|cat'?s\s*eye|pearl|moti|diamond|opal|05080010/i.test(cleanName) || hsn === '05080010') {
+    return { taxRate: 0.25, hsn: hsn || '05080010', label: '0.25%' };
+  }
+
+  // 3. Vastu Metal / Copper / Brass / Yantras -> 18% Tax
+  if (/metal|copper|brass|frame|yantra|83062990|74198090/i.test(cleanName) || hsn === '83062990' || hsn === '74198090') {
+    return { taxRate: 18, hsn: hsn || '83062990', label: '18%' };
+  }
+
+  // 4. Custom Tax Rate if specified explicitly
+  if (taxPct !== undefined && taxPct !== null && taxPct >= 0) {
+    return { taxRate: taxPct, hsn: hsn || '71179090', label: `${taxPct}%` };
+  }
+
+  // 5. Default Bracelets / Decorative Items -> 3% Tax
+  return { taxRate: 3, hsn: hsn || '71179090', label: '3%' };
+}
 
 interface HsnTaxIds {
-    inter: string; // interstate (IGST) Zoho tax_id
-    intra: string; // intrastate (CGST+SGST group) Zoho tax_id
+  inter: string;
+  intra: string;
 }
 
-/**
- * Every HSN/SAC code maps to exactly one inter and one intra Zoho tax ID.
- * 0% items use the special 'NO_TAX' sentinel.
- */
 const HSN_TAX_IDS: Record<string, HsnTaxIds> = {
-    // 0% — Rudrakshas
-    '14049070': { inter: 'NO_TAX', intra: 'NO_TAX' },
-    // 0.25% — Gemstones and Raw Crystals
-    '05080010': { inter: '3355221000000032572', intra: '3355221000000044472' },
-    // 3% — Bracelets, Malas and Decorative Items
-    '71179090': { inter: '3355221000000032756', intra: '3355221000000044134' },
-    // 18% — Vastu Metal
-    '83062990': { inter: '3355221000000032375', intra: '3355221000000032451' },
-    // 18% — Vastu Copper/Brass
-    '74198090': { inter: '3355221000000032375', intra: '3355221000000032451' },
-    // 3% — Vastu Wooden (miscellaneous)
-    '44209090': { inter: '3355221000000032756', intra: '3355221000000044134' },
-    // 3% — Miscellaneous Goods
-    '39269090': { inter: '3355221000000032756', intra: '3355221000000044134' },
-    // 0% — Poojas and Services
-    '999591': { inter: 'NO_TAX', intra: 'NO_TAX' },
-    // 0% — Miscellaneous Services
-    '999799': { inter: 'NO_TAX', intra: 'NO_TAX' },
-    // 18% — Delivery and COD Charges
-    '996812': { inter: '3355221000000032375', intra: '3355221000000032451' },
+  // 0% — Rudrakshas & Sacred Items (Exempt)
+  '14049070': { inter: 'NO_TAX', intra: 'NO_TAX' },
+  // 0.25% — Gemstones and Raw Crystals
+  '05080010': { inter: '3355221000000032572', intra: '3355221000000044472' },
+  // 3% — Bracelets, Malas and Decorative Items
+  '71179090': { inter: '3355221000000032756', intra: '3355221000000044134' },
+  // 18% — Vastu Metal
+  '83062990': { inter: '3355221000000032375', intra: '3355221000000032451' },
+  // 18% — Vastu Copper/Brass
+  '74198090': { inter: '3355221000000032375', intra: '3355221000000032451' },
+  // 3% — Vastu Wooden
+  '44209090': { inter: '3355221000000032756', intra: '3355221000000044134' },
+  // 3% — Miscellaneous Goods
+  '39269090': { inter: '3355221000000032756', intra: '3355221000000044134' },
+  // 0% — Poojas and Services
+  '999591': { inter: 'NO_TAX', intra: 'NO_TAX' },
+  '999799': { inter: 'NO_TAX', intra: 'NO_TAX' },
+  // 18% — Delivery and COD Charges
+  '996812': { inter: '3355221000000032375', intra: '3355221000000032451' },
 };
 
-/**
- * HSN Tax Rates mapping (percentage)
- */
 export const HSN_TAX_RATES: Record<string, number> = {
-    '14049070': 0,      // 0% — Rudrakshas
-    '05080010': 0.25,   // 0.25% — Gemstones and Raw Crystals
-    '71179090': 3,      // 3% — Bracelets, Malas and Decorative Items
-    '83062990': 18,     // 18% — Vastu Metal
-    '74198090': 18,     // 18% — Vastu Copper/Brass
-    '44209090': 3,      // 3% — Vastu Wooden (miscellaneous)
-    '39269090': 3,      // 3% — Miscellaneous Goods
-    '999591': 0,        // 0% — Poojas and Services
-    '999799': 0,        // 0% — Miscellaneous Services
-    '996812': 18,       // 18% — Delivery and COD Charges
+  '14049070': 0,      // 0% — Rudrakshas & Sacred Seeds
+  '05080010': 0.25,   // 0.25% — Gemstones
+  '71179090': 3,      // 3% — Bracelets & Jewelry
+  '83062990': 18,     // 18% — Vastu Metal
+  '74198090': 18,     // 18% — Vastu Copper
+  '44209090': 3,      // 3% — Vastu Wooden
+  '39269090': 3,      // 3% — Misc
+  '999591': 0,        // 0% — Poojas
+  '999799': 0,        // 0% — Services
+  '996812': 18,       // 18% — Delivery
 };
 
-const TAX_18_INTER = '3355221000000032375'; // IGST18
-const TAX_18_INTRA = '3355221000000032451'; // GST18
+const TAX_18_INTER = '3355221000000032375';
+const TAX_18_INTRA = '3355221000000032451';
 
-// ============================================================
-// getCorrectTaxId  —  the ONE function everyone calls
-// ============================================================
-
-/**
- * Given an HSN code and inter/intra flag, returns the correct Zoho tax_id.
- * Returns 'NO_TAX' for 0% categories or unknown HSN codes.
- */
 export const getCorrectTaxId = (hsn: string, isInterstate: boolean): string => {
-    const entry = HSN_TAX_IDS[hsn];
-    if (!entry) return 'NO_TAX';
-    return isInterstate ? entry.inter : entry.intra;
+  const entry = HSN_TAX_IDS[hsn];
+  if (!entry) return 'NO_TAX';
+  return isInterstate ? entry.inter : entry.intra;
 };
 
-/**
- * Returns the correct 18% tax_id for shipping/COD charges.
- */
 export const get18PctTaxId = (isInterstate: boolean): string => {
-    return isInterstate ? TAX_18_INTER : TAX_18_INTRA;
+  return isInterstate ? TAX_18_INTER : TAX_18_INTRA;
 };
-
-// ============================================================
-// normalizeItemTaxForContext  —  auto-correct tax on items
-// ============================================================
 
 interface NormalizeContext {
-    item: InvoiceItem;
-    updates: Partial<InvoiceItem>;
-    taxes: ZohoTax[]; // kept for backward compat but not used for selection
-    isInterstate: boolean;
+  item: InvoiceItem;
+  updates: Partial<InvoiceItem>;
+  taxes: ZohoTax[];
+  isInterstate: boolean;
 }
 
-/**
- * Auto-correct the tax_id on a line item based on its HSN and inter/intra state.
- * Uses the HSN_TAX_IDS map as the single source of truth.
- */
 export const normalizeItemTaxForContext = ({
-    item,
-    updates,
-    taxes,
-    isInterstate,
+  item,
+  updates,
+  isInterstate,
 }: NormalizeContext): Partial<InvoiceItem> => {
-    // Don't touch system/service lines
-    if (item.zoho_item_id === '__system__') {
-        return updates;
-    }
+  if (item.zoho_item_id === '__system__') {
+    return updates;
+  }
 
-    const merged: InvoiceItem = { ...item, ...updates };
-    const hsn = merged.hsn_or_sac || '';
+  const merged: InvoiceItem = { ...item, ...updates };
+  const hsn = merged.hsn_or_sac || '';
 
-    // If HSN is not in our map, leave tax as-is
-    if (!HSN_TAX_IDS[hsn]) {
-        return updates;
-    }
+  if (!HSN_TAX_IDS[hsn]) {
+    return updates;
+  }
 
-    const correctTaxId = getCorrectTaxId(hsn, isInterstate);
+  const correctTaxId = getCorrectTaxId(hsn, isInterstate);
 
-    // Already correct — no change needed
-    if (merged.tax_id === correctTaxId) {
-        return {
-            ...updates,
-            tax_auto_corrected: false,
-            tax_correction_note: undefined,
-        };
-    }
-
-    // Needs correction
-    let note: string | undefined;
-    if (merged.tax_id && merged.tax_id !== 'NO_TAX' && merged.tax_id !== correctTaxId) {
-        note = !isInterstate
-            ? 'Switched to CGST+SGST (intrastate transaction).'
-            : 'Switched to IGST (interstate transaction).';
-    }
-
+  if (merged.tax_id === correctTaxId) {
     return {
-        ...updates,
-        tax_id: correctTaxId,
-        tax_auto_corrected: !!note,
-        tax_correction_note: note,
+      ...updates,
+      tax_auto_corrected: false,
+      tax_correction_note: undefined,
     };
-};
+  }
 
-// ============================================================
-// validateTaxesForOrder  —  final safety check
-// ============================================================
+  let note: string | undefined;
+  if (merged.tax_id && merged.tax_id !== 'NO_TAX' && merged.tax_id !== correctTaxId) {
+    note = !isInterstate
+      ? 'Switched to CGST+SGST (intrastate transaction).'
+      : 'Switched to IGST (interstate transaction).';
+  }
+
+  return {
+    ...updates,
+    tax_id: correctTaxId,
+    tax_auto_corrected: !!note,
+    tax_correction_note: note,
+  };
+};
 
 export interface TaxValidationIssue {
-    index: number;
-    message: string;
+  index: number;
+  message: string;
 }
 
-/**
- * Validate that every line item with an HSN has the correct tax_id
- * from the map. Returns issues for any mismatches.
- */
 export const validateTaxesForOrder = (
-    items: InvoiceItem[],
-    _taxes: ZohoTax[],
-    isInterstate: boolean
+  items: InvoiceItem[],
+  _taxes: ZohoTax[],
+  isInterstate: boolean
 ): TaxValidationIssue[] => {
-    const issues: TaxValidationIssue[] = [];
+  const issues: TaxValidationIssue[] = [];
 
-    items.forEach((item, index) => {
-        const hsn = item.hsn_or_sac || '';
-        if (!HSN_TAX_IDS[hsn]) return; // unknown HSN, skip
+  items.forEach((item, index) => {
+    const hsn = item.hsn_or_sac || '';
+    if (!HSN_TAX_IDS[hsn]) return;
 
-        const correctTaxId = getCorrectTaxId(hsn, isInterstate);
-        if (item.tax_id !== correctTaxId) {
-            issues.push({
-                index,
-                message: !isInterstate
-                    ? 'IGST cannot be applied as this is an intrastate transaction. Tax must be CGST+SGST.'
-                    : 'CGST/SGST cannot be applied for interstate. Tax must be IGST.',
-            });
-        }
-    });
+    const correctTaxId = getCorrectTaxId(hsn, isInterstate);
+    if (item.tax_id !== correctTaxId) {
+      issues.push({
+        index,
+        message: !isInterstate
+          ? 'IGST cannot be applied as this is an intrastate transaction. Tax must be CGST+SGST.'
+          : 'CGST/SGST cannot be applied for interstate. Tax must be IGST.',
+      });
+    }
+  });
 
-    return issues;
+  return issues;
 };
-

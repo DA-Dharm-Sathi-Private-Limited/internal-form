@@ -4,6 +4,7 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import mongoose from 'mongoose';
 import { withError, fail } from '@/lib/api-handler';
+import { getItemTaxRateAndHsn } from '@/lib/tax';
 
 function numberToWordsIndian(num: number): string {
   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -61,9 +62,10 @@ function generateHtmlInvoice(order: any): string {
     const qty = it.quantity || 1;
     const finalTotal = (it.final_price || it.rate || 0) * qty;
     
-    // 3% GST standard calculation
-    const taxRate = it.tax_percentage || 0.25; // gemstones 0.25% or 3%
-    const pretaxRate = finalTotal / (1 + taxRate / 100);
+    // Smart Tax Categorization (0% for Rudraksh/Tulsi, 0.25% for Gemstones, 3% for Bracelets, 18% for Vastu)
+    const { taxRate, hsn } = getItemTaxRateAndHsn(it.name, it.hsn_or_sac, it.tax_percentage);
+    
+    const pretaxRate = taxRate > 0 ? finalTotal / (1 + taxRate / 100) : finalTotal;
     const lineTax = finalTotal - pretaxRate;
 
     subtotalSum += pretaxRate;
