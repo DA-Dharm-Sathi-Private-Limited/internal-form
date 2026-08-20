@@ -4,7 +4,7 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import mongoose from 'mongoose';
 import { withError, fail } from '@/lib/api-handler';
-import { getItemTaxRateAndHsn } from '@/lib/tax';
+import { HSN_TAX_RATES } from '@/lib/tax';
 
 function numberToWordsIndian(num: number): string {
   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -39,6 +39,20 @@ const STATE_CODES: Record<string, string> = {
   'TAMIL NADU': '33', 'TELANGANA': '36'
 };
 
+function getTaxPercentageForItem(it: any): number {
+  if (it.tax_id === 'NO_TAX' || it.hsn_or_sac === '14049070' || it.hsn_or_sac === '999591' || it.hsn_or_sac === '999799') {
+    return 0;
+  }
+  if (it.tax_percentage !== undefined && it.tax_percentage !== null) {
+    return Number(it.tax_percentage);
+  }
+  const hsn = String(it.hsn_or_sac || '');
+  if (HSN_TAX_RATES[hsn] !== undefined) {
+    return HSN_TAX_RATES[hsn];
+  }
+  return 3; // Default 3% for bracelets/malas
+}
+
 function generateHtmlInvoice(order: any): string {
   const customer = order.customerDetails || {};
   const items = order.invoiceItems || [];
@@ -62,9 +76,8 @@ function generateHtmlInvoice(order: any): string {
     const qty = it.quantity || 1;
     const finalTotal = (it.final_price || it.rate || 0) * qty;
     
-    // Smart Tax Categorization (0% for Rudraksh/Tulsi, 0.25% for Gemstones, 3% for Bracelets, 18% for Vastu)
-    const { taxRate, hsn } = getItemTaxRateAndHsn(it.name, it.hsn_or_sac, it.tax_percentage);
-    
+    // Tax percentage determined exactly as in Zoho
+    const taxRate = getTaxPercentageForItem(it);
     const pretaxRate = taxRate > 0 ? finalTotal / (1 + taxRate / 100) : finalTotal;
     const lineTax = finalTotal - pretaxRate;
 
@@ -77,6 +90,7 @@ function generateHtmlInvoice(order: any): string {
 
     const caratStr = it.carat_size ? `${it.carat_size} carat` : '';
     const description = [it.name, caratStr].filter(Boolean).join('. ');
+    const displayHsn = it.hsn_or_sac || (taxRate === 0 ? '14049070' : taxRate === 0.25 ? '05080010' : '71179090');
 
     if (isHaryana) {
       const halfTaxRate = (taxRate / 2).toFixed(2);
@@ -85,7 +99,7 @@ function generateHtmlInvoice(order: any): string {
         <tr>
           <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${idx + 1}</td>
           <td style="padding: 8px; border: 1px solid #d1d5db; font-weight: 500;">${description}</td>
-          <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${it.hsn_or_sac || '05080010'}</td>
+          <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${displayHsn}</td>
           <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${qty.toFixed(2)}</td>
           <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${rateFormatted}</td>
           <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${halfTaxRate}%</td>
@@ -101,7 +115,7 @@ function generateHtmlInvoice(order: any): string {
       <tr>
         <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${idx + 1}</td>
         <td style="padding: 8px; border: 1px solid #d1d5db; font-weight: 500;">${description}</td>
-        <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${it.hsn_or_sac || '05080010'}</td>
+        <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${displayHsn}</td>
         <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${qty.toFixed(2)}</td>
         <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${rateFormatted}</td>
         <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${taxRate}%</td>
