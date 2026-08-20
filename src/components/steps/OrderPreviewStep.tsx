@@ -65,7 +65,7 @@ export default function OrderPreviewStep({ formData, updateForm, onNext, onPrev 
         finalInvoiceItems.push(buildChargeItem('COD Charges', 50, 'Cash on Delivery fee'));
     }
 
-    const [isTestMode, setIsTestMode] = useState(true);
+    const [isTestMode, setIsTestMode] = useState(false);
 
     const handleConfirm = async () => {
         setSubmitting(true);
