@@ -145,6 +145,7 @@ function generateHtmlInvoice(order: any): string {
     `;
   }).join('');
 
+  const grossSumFormatted = grossSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const subtotalFormatted = subtotalSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const discountAmountFormatted = discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const discountPctFormatted = discountPct.toFixed(2);
@@ -435,18 +436,19 @@ function generateHtmlInvoice(order: any): string {
           <table class="totals-table">
             <tr>
               <td style="color: #4b5563;">Sub Total</td>
-              <td style="font-weight: 600;">${subtotalFormatted}</td>
+              <td style="font-weight: 600;">${discountAmount > 0 ? grossSumFormatted : subtotalFormatted}</td>
             </tr>
             ${discountAmount > 0 ? `
             <tr>
               <td style="color: #dc2626; font-weight: 700;">Discount (${discountPctFormatted}%)</td>
               <td style="color: #dc2626; font-weight: 700;">-₹${discountAmountFormatted}</td>
             </tr>
-            ` : ''}
+            ` : `
             <tr>
               <td style="color: #4b5563;">Tax (GST)</td>
               <td style="font-weight: 600;">${taxSumFormatted}</td>
             </tr>
+            `}
             <tr class="grand-row">
               <td>Total</td>
               <td>₹${grandTotalFormatted}</td>
