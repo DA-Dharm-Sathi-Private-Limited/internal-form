@@ -520,7 +520,7 @@ export const GET = withError(async (
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `inline; filename="invoice-${id}.html"`,
+      'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
     },
   });
 });
