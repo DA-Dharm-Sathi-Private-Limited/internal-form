@@ -82,7 +82,10 @@ function generateHtmlInvoice(order: any): string {
   const stateCode = STATE_CODES[stateName] || '06';
   const isHaryana = stateCode === '06';
 
-  const grandTotal = order.invoiceTotal || items.reduce((acc: number, it: any) => acc + ((it.final_price || it.rate || 0) * (it.quantity || 1)), 0);
+  const grossSum = items.reduce((acc: number, it: any) => acc + ((it.final_price || it.rate || 0) * (it.quantity || 1)), 0);
+  const discountAmount = order.discount || (grossSum > (order.invoiceTotal || grossSum) ? grossSum - order.invoiceTotal : 0);
+  const discountPct = grossSum > 0 ? (discountAmount / grossSum) * 100 : 0;
+  const grandTotal = order.invoiceTotal || (grossSum - discountAmount);
 
   let subtotalSum = 0;
   let taxSum = 0;
@@ -143,6 +146,8 @@ function generateHtmlInvoice(order: any): string {
   }).join('');
 
   const subtotalFormatted = subtotalSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const discountAmountFormatted = discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const discountPctFormatted = discountPct.toFixed(2);
   const taxSumFormatted = taxSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const grandTotalFormatted = Number(grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const grandTotalWords = numberToWordsIndian(Number(grandTotal));
@@ -432,6 +437,12 @@ function generateHtmlInvoice(order: any): string {
               <td style="color: #4b5563;">Sub Total</td>
               <td style="font-weight: 600;">${subtotalFormatted}</td>
             </tr>
+            ${discountAmount > 0 ? `
+            <tr>
+              <td style="color: #dc2626; font-weight: 700;">Discount (${discountPctFormatted}%)</td>
+              <td style="color: #dc2626; font-weight: 700;">-₹${discountAmountFormatted}</td>
+            </tr>
+            ` : ''}
             <tr>
               <td style="color: #4b5563;">Tax (GST)</td>
               <td style="font-weight: 600;">${taxSumFormatted}</td>
