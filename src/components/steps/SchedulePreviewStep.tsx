@@ -623,9 +623,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
                   <div className="flex flex-wrap gap-4 mb-2">
                     <span><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> {formData.city}, {formData.state} {formData.pincode}</span>
                   </div>
-                  {sh.deliveryPartner !== 'DTDC' && sh.deliveryPartner !== 'Shadowfax' && !isSelfShipment(sh) && (
-                    <ShipmentEstimates costs={shippingCosts} tats={expectedTats} shipmentId={sh.id} />
-                  )}
+                  <ShipmentEstimates costs={shippingCosts} tats={expectedTats} shipmentId={sh.id} partner={isSelfShipment(sh) ? 'Self Shipment' : sh.deliveryPartner} />
                 </div>
               ))}
             </div>
