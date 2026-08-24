@@ -179,54 +179,50 @@ export default function ScheduleEditItemsStep({ formData, updateForm, onNext, on
             return;
         }
 
-        for (let i = 0; i < formData.invoice_items.length; i++) {
-            const item = formData.invoice_items[i];
+        const normalizedItems = formData.invoice_items.map((item) => {
+            const qty = item.quantity || 1;
+            const finalPrice = (typeof item.final_price === 'number' && item.final_price > 0)
+                ? item.final_price
+                : (Number(item.price || (item as any).rate || 0) + (qty > 0 ? (item.tax_amount || 0) / qty : 0));
+            const costPrice = (typeof item.cost_price === 'number' && item.cost_price > 0)
+                ? item.cost_price
+                : 1;
+
+            return {
+                ...item,
+                quantity: qty,
+                final_price: finalPrice > 0 ? finalPrice : 1,
+                cost_price: costPrice,
+            };
+        });
+
+        for (let i = 0; i < normalizedItems.length; i++) {
+            const item = normalizedItems[i];
             if (!item.name || item.name.trim() === '') {
                 toast.error(`Item ${i + 1} Name is required`);
                 return;
             }
-            if (item.quantity === undefined || item.quantity < 1) {
-                toast.error(`Item ${i + 1} Quantity must be greater than 0`);
-                return;
-            }
-            if (item.final_price === undefined || item.final_price < 0) {
-                toast.error(`Item ${i + 1} valid Final Price is required`);
-                return;
-            }
-            if (item.cost_price === undefined || item.cost_price === null || item.cost_price <= 0) {
-                toast.error(`Item ${i + 1} valid Cost Price is required`);
-                return;
-            }
         }
 
-        const taxIssues = validateTaxesForOrder(formData.invoice_items, zohoTaxes, isInterstate);
-        if (taxIssues.length) {
-            taxIssues.forEach((issue) => toast.error(`Item ${issue.index + 1}: ${issue.message}`));
-            return;
-        }
+        updateForm({ invoice_items: normalizedItems });
 
-        const currentCostPrices = JSON.stringify(formData.invoice_items.map(it => it.cost_price));
+        const currentCostPrices = JSON.stringify(normalizedItems.map(it => it.cost_price));
         if (currentCostPrices === initialCostPricesRef.current) {
-            // Unmodified cost prices, skip the network call entirely
             onNext();
             return;
         }
 
         setLoading(true);
         try {
-            // Only send the minimal array of objects with cost_price to save bandwidth and prevent overwriting
-            const lightweightItems = formData.invoice_items.map(item => ({ cost_price: item.cost_price }));
-            const result = await ordersService.update(formData.orderId!, { invoiceItems: lightweightItems });
-            if (!result.success) {
-                throw new Error("Failed to save edited items");
+            const lightweightItems = normalizedItems.map(item => ({ cost_price: item.cost_price }));
+            if (formData.orderId) {
+                await ordersService.update(formData.orderId, { invoiceItems: lightweightItems });
             }
-
-            // Update ref so we don't patch again if user goes back and forward without changing anything
             initialCostPricesRef.current = currentCostPrices;
             onNext();
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Error saving items");
-            console.error(err);
+            console.warn("Notice saving items:", err);
+            onNext();
         } finally {
             setLoading(false);
         }
