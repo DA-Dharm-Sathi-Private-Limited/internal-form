@@ -592,44 +592,40 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
       </div>
 
       {/* Estimates / Routing */}
-      {loadingPreview ? (
-        <Spinner text="Calculating shipping estimates & routing..." />
-      ) : (
-        <div className="w-full">
-          <div className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-6 shadow-sm">
-            <h4 className="text-gray-900 dark:text-accent font-bold mb-5 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
-              🚚 Shipping Routing ({formData.orderId})
-            </h4>
-            <div className="text-sm space-y-8 text-gray-600 dark:text-gray-300">
-              {plannedShipments.map((sh, idx) => (
-                <div key={sh.id} className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-[#2a2a38] bg-gray-50 dark:bg-[#1c1c28]">
-                  <div className="flex items-center gap-4 mb-2">
-                    <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">Shipment {idx + 1}</span>
-                    <span className={isSelfShipment(sh) ? 'badge badge-emerald' : 'badge badge-indigo'}>
-                      {isSelfShipment(sh) ? 'SELF SHIPPED' : sh.deliveryPartner === 'Shadowfax' ? 'SHADOWFAX' : sh.deliveryPartner}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-4 mb-2">
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Origin:</span> {sh.warehouse}</span>
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Mode:</span> {sh.shipping_mode}</span>
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Payment:</span> {sh.payment_mode}</span>
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Weight:</span> {sh.weight}g</span>
-                  </div>
-                  <div className="flex flex-wrap gap-4 mb-2">
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Dimensions:</span> {sh.length}L x {sh.width}W x {sh.height}H</span>
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Fragile:</span> {sh.fragile ? 'Yes' : 'No'}</span>
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Contents:</span> {sh.products_desc}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-4 mb-2">
-                    <span><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> {formData.city}, {formData.state} {formData.pincode}</span>
-                  </div>
-                  <ShipmentEstimates costs={shippingCosts} tats={expectedTats} shipmentId={sh.id} partner={isSelfShipment(sh) ? 'Self Shipment' : sh.deliveryPartner} />
+      <div className="w-full">
+        <div className="bg-white dark:bg-[#16161f] border border-gray-200 dark:border-[#2a2a38] rounded-2xl p-6 shadow-sm">
+          <h4 className="text-gray-900 dark:text-accent font-bold mb-5 border-b border-gray-100 dark:border-[#2a2a38] pb-3 flex items-center gap-2 text-lg">
+            🚚 Shipping Routing ({formData.orderId})
+          </h4>
+          <div className="text-sm space-y-8 text-gray-600 dark:text-gray-300">
+            {plannedShipments.map((sh, idx) => (
+              <div key={sh.id} className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-[#2a2a38] bg-gray-50 dark:bg-[#1c1c28]">
+                <div className="flex items-center gap-4 mb-2">
+                  <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 font-semibold">Shipment {idx + 1}</span>
+                  <span className={isSelfShipment(sh) ? 'badge badge-emerald' : 'badge badge-indigo'}>
+                    {isSelfShipment(sh) ? 'SELF SHIPPED' : sh.deliveryPartner === 'Shadowfax' ? 'SHADOWFAX' : sh.deliveryPartner}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-4 mb-2">
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Origin:</span> {sh.warehouse}</span>
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Mode:</span> {sh.shipping_mode}</span>
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Payment:</span> {sh.payment_mode}</span>
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Weight:</span> {sh.weight}g</span>
+                </div>
+                <div className="flex flex-wrap gap-4 mb-2">
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Dimensions:</span> {sh.length}L x {sh.width}W x {sh.height}H</span>
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Fragile:</span> {sh.fragile ? 'Yes' : 'No'}</span>
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Contents:</span> {sh.products_desc}</span>
+                </div>
+                <div className="flex flex-wrap gap-4 mb-2">
+                  <span><span className="text-gray-500 dark:text-gray-400 font-medium">Destination:</span> {formData.city}, {formData.state} {formData.pincode}</span>
+                </div>
+                <ShipmentEstimates costs={shippingCosts} tats={expectedTats} shipmentId={sh.id} partner={isSelfShipment(sh) ? 'Self Shipment' : sh.deliveryPartner} />
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
       <div className="mt-8 flex justify-between">
         <div></div>
