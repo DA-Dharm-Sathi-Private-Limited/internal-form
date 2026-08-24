@@ -97,6 +97,9 @@ export default function PendingOrdersStep({ onSelectOrder }: Props) {
                             <div>
                                 <div className="flex items-center gap-3 mb-1">
                                     <span className="font-bold text-lg text-gray-900 dark:text-white">{order.orderId}</span>
+                                    {(order as any).invoiceTotal !== undefined && (
+                                        <span className="font-bold text-lg text-accent">₹{Number((order as any).invoiceTotal).toLocaleString('en-IN')}</span>
+                                    )}
                                     <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 px-2 py-0.5 rounded font-medium">PENDING</span>
                                     <span className={`text-xs px-2 py-0.5 rounded font-medium text-gray-900 dark:text-white ${order.paymentMode === 'COD' ? 'bg-red-100 dark:bg-red-500/20' : 'bg-green-100 dark:bg-green-500/20'}`}>
                                         {order.paymentMode === 'COD' ? 'COD' : 'Prepaid'}
@@ -105,6 +108,7 @@ export default function PendingOrdersStep({ onSelectOrder }: Props) {
                                 <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-4">
                                     <span>👤 {order.customerDetails.customer_name}</span>
                                     {order.salespersonName && <span>🧑‍💼 {order.salespersonName}</span>}
+                                    {(order as any).discount > 0 && <span className="text-red-500 font-medium">🏷️ Disc: ₹{(order as any).discount}</span>}
                                     <span>📅 {new Date(order.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">

@@ -147,11 +147,14 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
     } catch { /* ignore */ }
   };
 
-  const subtotal = formData.invoice_items.reduce((acc, item) => acc + (item.item_total || 0), 0);
-  const totalTax = formData.invoice_items.reduce((acc, item) => acc + (item.tax_amount || 0), 0);
-  const finalItemsPrice = subtotal + totalTax;
-  const appliedDiscount = (Number(formData.discount) || 0) * (formData.discount_format_type === 'percentage' ? finalItemsPrice / 100 : 1);
-  const grandTotal = finalItemsPrice - appliedDiscount + (formData.include_shipping ? 100 : 0) + (formData.include_cod ? 50 : 0);
+  const grossLineSum = formData.invoice_items.reduce((acc, item) => {
+    const qty = item.quantity || 1;
+    const finalPrice = typeof item.final_price === 'number' && item.final_price > 0 ? item.final_price : (item.price || 0);
+    return acc + (finalPrice * qty);
+  }, 0);
+
+  const appliedDiscount = (Number(formData.discount) || 0) * (formData.discount_format_type === 'percentage' ? grossLineSum / 100 : 1);
+  const grandTotal = Math.max(0, grossLineSum - appliedDiscount) + (formData.include_shipping ? 100 : 0) + (formData.include_cod ? 50 : 0);
 
   const handleConfirm = async () => {
     setSubmitting(true);

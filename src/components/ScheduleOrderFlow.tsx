@@ -51,6 +51,8 @@ export default function ScheduleOrderFlow() {
         salespersonName: Salesperson | '';
         paymentMode?: 'Prepaid' | 'COD';
         status: string;
+        discount?: number;
+        invoiceTotal?: number;
     };
 
     const handleSelectOrder = (order: SelectedOrder) => {
@@ -87,10 +89,11 @@ export default function ScheduleOrderFlow() {
             country: order.customerDetails.country,
             pincode: order.customerDetails.pincode,
             invoice_items: normalizedItems,
+            discount: order.discount !== undefined ? String(order.discount) : '0',
+            discount_format_type: 'fixed',
             salesperson_name: order.salespersonName,
             payment_mode: order.paymentMode === 'COD' ? 'COD' : 'Prepaid',
-            // Trigger pincode check naturally via updating the zip
-            isPincodeServiceable: true // Assume true initially to unblock, wait user might need to edit. But user won't edit customer details in this flow.
+            isPincodeServiceable: true
         });
         nextStep();
     };
