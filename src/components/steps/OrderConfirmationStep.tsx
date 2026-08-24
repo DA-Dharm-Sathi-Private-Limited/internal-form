@@ -43,31 +43,12 @@ export default function OrderConfirmationStep({ formData, onReset }: Props) {
                 }
             }
 
-            // 2. Fetch invoice PDF/HTML
-            const res = await fetch(`/api/invoices/${targetId}/pdf`);
-            
-            if (res.ok) {
-                const contentType = res.headers.get('content-type') || '';
-                if (contentType.includes('text/html')) {
-                    const text = await res.text();
-                    const blob = new Blob([text], { type: 'text/html' });
-                    downloadBlob(blob, `invoice-${formData.orderId || 'download'}.pdf`);
-                } else {
-                    const blob = await res.blob();
-                    downloadBlob(blob, `invoice-${formData.orderId || 'download'}.pdf`);
-                }
-                toast.success('📄 Invoice downloaded & order saved successfully!');
-            } else {
-                throw new Error('Failed to fetch invoice');
-            }
+            // 2. Open invoice PDF in new tab directly
+            window.open(`/api/invoices/${targetId}/pdf`, '_blank');
+            toast.success('📄 Invoice opened & order saved successfully!');
         } catch (e) {
-            console.error('Invoice download fallback error:', e);
-            const customerName = formData.customer_name || 'Customer';
-            const total = formData.pendingOrderPayload?.invoiceTotal || 800;
-            const fallbackHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Tax Invoice - ${formData.orderId}</title><style>body{font-family:sans-serif;padding:30px;background:#f8fafc;}.card{background:#fff;border:1px solid #cbd5e1;padding:30px;border-radius:12px;max-width:650px;margin:auto;box-shadow:0 4px 10px rgba(0,0,0,0.05);}.btn{padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;margin-bottom:20px;}</style></head><body><button class="btn" onclick="window.print()">🖨️ Print Invoice / Save as PDF</button><div class="card"><h2>D A Dharm Sathi Private Limited</h2><h3>TAX INVOICE #${formData.orderId}</h3><hr/><p><strong>Customer:</strong> ${customerName}</p><p><strong>Phone:</strong> ${formData.phone || ''}</p><p><strong>Address:</strong> ${formData.address || ''}, ${formData.city || ''}</p><p><strong>Payment Mode:</strong> ${formData.payment_mode || 'Prepaid'}</p><hr/><h3 style="color:#6d28d9;">Grand Total: ₹${total}</h3></div><script>window.onload=function(){window.print();}</script></body></html>`;
-            const blob = new Blob([fallbackHtml], { type: 'text/html' });
-            downloadBlob(blob, `invoice-${formData.orderId || 'HP-INV'}.pdf`);
-            toast.success('📄 Invoice generated & downloaded successfully!');
+            console.error('Invoice view error:', e);
+            toast.error('Failed to open invoice');
         } finally {
             setDownloadingInvoice(false);
         }

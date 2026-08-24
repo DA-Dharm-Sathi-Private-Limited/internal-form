@@ -167,7 +167,7 @@ export default function EditInvoicePage() {
         is_discount_before_tax: false,
       }) as Record<string, unknown>;
       if (!data.success) throw new Error((data as any).error || 'Failed to update invoice');
-      toast.success('Invoice replaced & synced in Zoho!');
+      toast.success('Invoice updated successfully!');
       setOrder(data.order);
       setItems(((data.order as any)?.invoiceItems || []).map(mapDbItemToInvoiceItem));
       setSavedSuccessfully(true);
@@ -178,29 +178,9 @@ export default function EditInvoicePage() {
     }
   };
 
-  const handleDownloadInvoice = async () => {
+  const handleDownloadInvoice = () => {
     if (!order?.orderId) return;
-    setDownloadingInvoice(true);
-    try {
-      const res = await zohoService.getInvoicePdf(order.orderId);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to download invoice');
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `invoice-${order.orderId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      toast.error(err.message || 'Download failed');
-    } finally {
-      setDownloadingInvoice(false);
-    }
+    window.open(`/api/invoices/${order.orderId}/pdf`, '_blank');
   };
 
   return (
@@ -273,18 +253,16 @@ export default function EditInvoicePage() {
                   <div className="form-submit-section mt-6 flex flex-col gap-3">
                     <button className="btn btn-submit" onClick={handleSave} disabled={saving}>
                       {saving ? (
-                        <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Replacing Invoice in Zoho...</>
-                      ) : 'Save & Replace Invoice in Zoho'}
+                        <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Saving Changes...</>
+                      ) : '💾 Save Invoice Changes'}
                     </button>
                     <button className="btn bg-white dark:bg-[#1c1c28] hover:bg-gray-50 dark:hover:bg-[#2a2a38] text-gray-800 dark:text-white py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-200 dark:border-[#3a3a4a] shadow-sm hover:shadow font-medium w-full"
                       onClick={handleDownloadInvoice} disabled={downloadingInvoice}>
-                      {downloadingInvoice ? (
-                        <><span className="btn-spinner border-2 border-accent border-t-transparent w-4 h-4 rounded-full"></span> Downloading...</>
-                      ) : <>📄 Download Invoice PDF</>}
+                      📄 View / Print Invoice PDF
                     </button>
                     {savedSuccessfully && (
                       <p className="text-center text-sm text-green-500 font-medium animate-in fade-in duration-300">
-                        ✅ Invoice replaced successfully. Download the updated PDF above.
+                        ✅ Invoice updated successfully. Click above to view the updated PDF.
                       </p>
                     )}
                   </div>

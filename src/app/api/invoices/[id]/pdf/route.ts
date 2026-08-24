@@ -509,7 +509,7 @@ export const GET = withError(async (
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="invoice-${id}.pdf"`,
+          'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
           'Content-Length': String(pdfBuffer.byteLength),
         },
       });
