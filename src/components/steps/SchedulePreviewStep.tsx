@@ -633,7 +633,7 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
 
       <div className="mt-8 flex justify-between">
         <div></div>
-        <button className="btn btn-submit w-auto px-8" onClick={handleConfirm} disabled={loadingPreview || submitting}>
+        <button className="btn btn-submit w-auto px-8" onClick={handleConfirm} disabled={submitting}>
           {submitting ? (
             <><span className="btn-spinner border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-2 inline-block"></span> Processing...</>
           ) : (

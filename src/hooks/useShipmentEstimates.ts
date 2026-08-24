@@ -13,10 +13,17 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!destPincode || plannedShipments.length === 0) return;
+    if (!destPincode || plannedShipments.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
+
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 2500);
 
     async function fetchAll() {
       const newCosts: Record<string, number> = {};
@@ -70,7 +77,10 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
     }
 
     fetchAll();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
   }, [destPincode, plannedShipments]);
 
   return { costs, tats, loading };
