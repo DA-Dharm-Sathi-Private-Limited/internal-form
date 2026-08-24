@@ -88,6 +88,8 @@ export default function ScheduleOrderFlow() {
             state: order.customerDetails.state,
             country: order.customerDetails.country,
             pincode: order.customerDetails.pincode,
+            warehouse: (order as any).warehouse || 'ganpati jaipur',
+            products_desc: 'Spiritual Items / Gems / Malas',
             invoice_items: normalizedItems,
             discount: order.discount !== undefined ? String(order.discount) : '0',
             discount_format_type: 'fixed',

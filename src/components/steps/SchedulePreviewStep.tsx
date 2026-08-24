@@ -30,11 +30,12 @@ interface Props {
 }
 
 function defaultShipment(formData: CombinedFormData): PlannedShipment {
+  const defaultWh = (formData.warehouse as string) || 'ganpati jaipur';
   return {
     id: 'shipment-1',
-    vendor: formData.warehouse as string,
+    vendor: defaultWh,
     deliveryPartner: 'Delhivery',
-    warehouse: formData.warehouse as string,
+    warehouse: defaultWh,
     items: formData.invoice_items.map((_, idx) => ({ lineIndex: idx, quantity: _.quantity })),
     isSelfShipment: false,
     shipping_mode: formData.shipping_mode || 'Surface',
@@ -44,7 +45,7 @@ function defaultShipment(formData: CombinedFormData): PlannedShipment {
     length: formData.length || 10,
     width: formData.width || 10,
     height: formData.height || 10,
-    products_desc: formData.products_desc || '',
+    products_desc: formData.products_desc || 'Spiritual Items / Gems / Malas',
     cod_amount: undefined,
     provider: '',
     awb: '',

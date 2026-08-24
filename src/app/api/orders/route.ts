@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     
     try {
       await connectDB();
-      const filter = showAll ? {} : { status: { $in: ['PENDING_SHIPPING', 'PARTIALLY_SHIPPED'] } };
+      const filter = showAll ? {} : { status: { $nin: ['SHIPPED', 'DELIVERED', 'CANCELLED'] } };
       dbOrders = await Order.find(filter).sort({ createdAt: -1 }).lean();
     } catch {
       // MongoDB offline
