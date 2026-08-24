@@ -1,14 +1,10 @@
 import { useState, useEffect } from 'react';
 import { delhiveryService } from '@/services/delhivery';
+import { WAREHOUSE_DETAILS } from '@/config/warehouses';
 
 interface UseShipmentEstimatesParams {
   plannedShipments: { id: string; shipping_mode: string; weight: number; payment_mode: string; warehouse: string }[];
   destPincode: string;
-}
-
-interface Estimates {
-  costs: Record<string, number>;
-  tats: Record<string, string>;
 }
 
 export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipmentEstimatesParams) {
@@ -28,11 +24,12 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
 
       await Promise.all(
         plannedShipments.map(async (sh) => {
+          const originPin = WAREHOUSE_DETAILS[sh.warehouse]?.pincode || '201318';
           try {
             const costData = await delhiveryService.getShippingCost({
               md: sh.shipping_mode === 'Express' ? 'E' : 'S',
-              cgm: sh.weight,
-              o_pin: '302001',
+              cgm: sh.weight || 500,
+              o_pin: originPin,
               d_pin: destPincode,
               ss: 'Delivered',
               pt: sh.payment_mode === 'Prepaid' ? 'Pre-paid' : 'COD',
@@ -40,9 +37,13 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
             if (Array.isArray(costData) && (costData[0] as Record<string, unknown>)?.total_amount) {
               newCosts[sh.id] = (costData[0] as Record<string, number>).total_amount;
             }
+          } catch {
+            newCosts[sh.id] = 50; // Fallback estimate
+          }
 
+          try {
             const tatData = await delhiveryService.getTat({
-              origin_pin: '302001',
+              origin_pin: originPin,
               destination_pin: destPincode,
               mot: sh.shipping_mode === 'Express' ? 'E' : 'S',
             });
@@ -53,7 +54,11 @@ export function useShipmentEstimates({ plannedShipments, destPincode }: UseShipm
             } else if (tatData.expected_delivery_date) {
               newTats[sh.id] = tatData.expected_delivery_date;
             }
-          } catch { /* ignore per-shipment failure */ }
+          } catch {
+            const dt = new Date();
+            dt.setDate(dt.getDate() + 3);
+            newTats[sh.id] = dt.toISOString(); // Fallback 3 days delivery
+          }
         })
       );
 
