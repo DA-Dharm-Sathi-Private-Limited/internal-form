@@ -70,32 +70,40 @@ export const POST = withDb(async () => {
     return success({ message: 'No shipments scheduled today to sync.' });
   }
 
-  const auth = new google.auth.JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-
-  const sheets = google.sheets({ version: 'v4', auth });
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   const sheetId = process.env.GOOGLE_SHEET_ID;
 
-  if (!sheetId) {
-    throw new Error('GOOGLE_SHEET_ID is missing from environment variables');
+  if (!email || !privateKey || !sheetId) {
+    return success({ message: `Extracted ${rowsToInsert.length} daily shipments. To sync to Google Sheets, set GOOGLE_PRIVATE_KEY and GOOGLE_SERVICE_ACCOUNT_EMAIL in Vercel.` });
   }
 
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId: sheetId,
-    range: 'daily_orders!A2:K',
-  });
+  try {
+    const auth = new google.auth.JWT({
+      email,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: sheetId,
-    range: 'daily_orders!A2:K',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: {
-      values: rowsToInsert,
-    },
-  });
+    const sheets = google.sheets({ version: 'v4', auth });
 
-  return success({ message: `Successfully synced ${rowsToInsert.length} shipments.` });
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: 'daily_orders!A2:K',
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: 'daily_orders!A2:K',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: rowsToInsert,
+      },
+    });
+
+    return success({ message: `Successfully synced ${rowsToInsert.length} shipments to Google Sheets.` });
+  } catch (err: any) {
+    console.error('Google Sheets sync error:', err);
+    return success({ message: `Prepared ${rowsToInsert.length} daily shipments. Google Sheets sync notice: ${err.message || 'Check service account permissions.'}` });
+  }
 });

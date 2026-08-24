@@ -92,11 +92,13 @@ export default function LineItemRow({
         event.currentTarget.blur();
     };
 
-    const preTaxRate = Number(item.price) || 0;
-    const qty = Number(item.quantity) || 0;
-    const preTaxTotal = qty * preTaxRate;
+    const qty = Number(item.quantity) || 1;
+    const finalPriceUnit = typeof item.final_price === 'number' && item.final_price > 0 
+        ? item.final_price 
+        : (Number(item.price || (item as any).rate || 0) + (qty > 0 ? (item.tax_amount || 0) / qty : 0));
+    const preTaxRate = Number(item.price) || (finalPriceUnit > 0 ? finalPriceUnit : 0);
     const taxAmount = item.tax_amount || 0;
-    const itemTotal = preTaxTotal + taxAmount;
+    const itemTotal = (item.item_total && item.item_total > 0) ? item.item_total : (finalPriceUnit * qty);
 
     return (
         <div className="line-item-row">
@@ -308,7 +310,7 @@ export default function LineItemRow({
                         min="0"
                         step="0.01"
                         placeholder="0.00"
-                        value={item.final_price !== undefined && item.final_price !== 0 ? item.final_price : ''}
+                        value={finalPriceUnit > 0 ? finalPriceUnit : ''}
                         disabled={readOnlyAllExceptCostPrice}
                         inputMode="decimal"
                         onWheel={preventWheelValueChange}
