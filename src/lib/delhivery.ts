@@ -15,14 +15,8 @@ function getDelhiveryToken(): string {
     return token;
 }
 
-function getBaseUrl(isTracking = false): string {
-    const env = process.env.DELHIVERY_ENV || 'staging';
-    if (isTracking) {
-        return 'https://track.delhivery.com';
-    }
-    return env === 'production'
-        ? 'https://track.delhivery.com'
-        : 'https://staging-express.delhivery.com';
+function getBaseUrl(): string {
+    return 'https://track.delhivery.com';
 }
 
 function delhiveryHeaders(additionalHeaders: Record<string, string> = {}) {
@@ -123,7 +117,7 @@ export async function generateShippingLabel(waybill: string, pdfSize: string = '
     const baseUrl = getBaseUrl();
     const url = new URL(`${baseUrl}/api/p/packing_slip`);
     url.searchParams.append('wbns', waybill);
-    url.searchParams.append('pdf', 'false');
+    url.searchParams.append('pdf', 'true');
     url.searchParams.append('pdf_size', pdfSize);
 
     const res = await fetch(url.toString(), {
@@ -139,7 +133,7 @@ export async function generateShippingLabel(waybill: string, pdfSize: string = '
 export async function createPickupRequest(data: PickupRequestData) {
     // Use track.delhivery.com for prod, staging-express.delhivery.com for staging
     // BUT the endpoint is /fm/request/new/
-    const baseUrl = getBaseUrl(true);
+    const baseUrl = getBaseUrl();
 
     const formParams = new URLSearchParams();
     formParams.append('pickup_time', data.pickup_time);
@@ -162,7 +156,7 @@ export async function createPickupRequest(data: PickupRequestData) {
 
 // 7. Tracking
 export async function trackShipment(waybill?: string, refId?: string) {
-    const baseUrl = getBaseUrl(true);
+    const baseUrl = getBaseUrl();
     const url = new URL(`${baseUrl}/api/v1/packages/json/`);
     if (waybill) url.searchParams.append('waybill', waybill);
     if (refId) url.searchParams.append('ref_ids', refId);

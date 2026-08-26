@@ -19,9 +19,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(data, { status });
     }
 
-    // Extract package details for HTML render
     const pkgList = (data as Record<string, any>)?.packages || (Array.isArray(data) ? data : [data]);
     const pkg = pkgList[0] || {};
+    const pdfUrl = pkg.pdf_download_link || pkg.pdf_url;
+
+    // If official Delhivery PDF URL exists, fetch and serve the official PDF directly!
+    if (pdfUrl) {
+      try {
+        const pdfRes = await fetch(pdfUrl);
+        if (pdfRes.ok) {
+          const pdfBuffer = await pdfRes.arrayBuffer();
+          return new NextResponse(pdfBuffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `inline; filename="delhivery-label-${waybill}.pdf"`,
+              'Content-Length': String(pdfBuffer.byteLength),
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch official S3 PDF, falling back to label renderer:', err);
+      }
+    }
 
     const awb = pkg.wbn || pkg.waybill || waybill;
     const companyName = pkg.cl || 'D A DHARM SATHI PRIVATE LIMITED';
