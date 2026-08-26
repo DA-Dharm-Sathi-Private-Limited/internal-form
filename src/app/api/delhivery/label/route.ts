@@ -23,75 +23,140 @@ export async function GET(request: NextRequest) {
     const pkgList = (data as Record<string, any>)?.packages || (Array.isArray(data) ? data : [data]);
     const pkg = pkgList[0] || {};
 
-    const awb = pkg.waybill || waybill;
+    const awb = pkg.wbn || pkg.waybill || waybill;
+    const companyName = pkg.cl || 'D A DHARM SATHI PRIVATE LIMITED';
     const consigneeName = pkg.name || pkg.consignee_name || pkg.customer_name || 'Customer';
     const consigneeAddress = pkg.add || pkg.consignee_address || pkg.address || 'N/A';
-    const consigneeCity = pkg.city || pkg.consignee_city || '';
-    const consigneeState = pkg.state || pkg.consignee_state || '';
-    const consigneePin = pkg.pin || pkg.consignee_pin || '';
-    const sortCode = pkg.sort_code || 'DELHIVERY';
-    const orderId = pkg.refnum || pkg.order || pkg.si || '';
-    const paymentType = pkg.pt || pkg.payment || 'Prepaid';
+    const consigneePin = pkg.pin || pkg.consignee_pin || '201318';
+    const destinationHub = pkg.destination || `${pkg.city || 'Noida'} (${pkg.state || 'Uttar Pradesh'})`;
+    const sortCode = pkg.sort_code || 'NOI/STO';
+    const orderId = pkg.si || pkg.refnum || pkg.order || `${waybill}-PKG1`;
+    const paymentMode = pkg.pt ? `${pkg.pt} - ${pkg.mot === 'E' ? 'Express' : 'Surface'}` : 'Pre-paid - Surface';
+    
+    const now = new Date();
+    const dateFormatted = `${now.getDate().toString().padStart(2, '0')}-${now.toLocaleString('en-US', { month: 'short' })}-${now.getFullYear()} | ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+
+    const mainBarcode = pkg.barcode || '';
+    const oidBarcode = pkg.oid_barcode || '';
 
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
-  <title>Delhivery Shipping Label - ${awb}</title>
+  <title>Shipping Label - ${awb}</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; padding: 16px; background: #f9fafb; display: flex; flex-direction: column; align-items: center; }
-    .label-box { width: 400px; background: #fff; border: 2px solid #000; padding: 12px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; pb: 8px; margin-bottom: 8px; }
-    .sort-code { font-size: 16px; font-weight: 800; }
-    .brand { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
-    .awb-txt { font-size: 14px; font-weight: 800; margin: 6px 0 2px; }
-    .barcode-wrap { text-align: center; margin: 4px 0 8px; }
-    .barcode-wrap svg { max-width: 100%; height: auto; }
-    .meta-bar { display: flex; justify-content: space-between; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 4px 0; font-weight: 700; margin-bottom: 8px; }
-    .consignee-title { font-[#6b7280]; font-size: 11px; text-transform: uppercase; }
-    .consignee-name { font-size: 15px; font-weight: 800; margin: 2px 0; }
-    .btn-print { margin-bottom: 16px; padding: 10px 24px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
-    @media print { .btn-print { display: none; } body { padding: 0; background: white; } .label-box { box-shadow: none; } }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f3f4f6; padding: 20px; display: flex; flex-direction: column; align-items: center; color: #000; }
+    .btn-print { margin-bottom: 20px; padding: 12px 28px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .label-box { width: 440px; background: #ffffff; border: 2px solid #000000; padding: 16px; font-size: 12px; line-height: 1.35; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    
+    .top-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #000; padding-bottom: 10px; margin-bottom: 8px; }
+    .company-title { font-size: 13px; font-weight: 700; text-transform: uppercase; max-width: 250px; line-height: 1.3; }
+    
+    .delhivery-brand { text-align: right; }
+    .delhivery-logo-svg { height: 26px; width: auto; object-fit: contain; }
+
+    .awb-header { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .barcode-area { text-align: center; margin: 4px 0 6px; }
+    .barcode-area img, .barcode-area svg { max-width: 100%; height: 58px; object-fit: contain; }
+
+    .sort-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; border-bottom: 1.5px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
+    
+    .main-grid { display: flex; border-bottom: 1.5px solid #000; padding-bottom: 12px; margin-bottom: 10px; }
+    .ship-col { flex: 1.6; padding-right: 12px; border-right: 1px solid #d1d5db; }
+    .meta-col { flex: 1; padding-left: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+
+    .ship-to-txt { font-size: 12px; }
+    .consignee-name { font-size: 14px; font-weight: 800; }
+    .address-txt { font-size: 11px; margin-top: 3px; line-height: 1.35; color: #1f2937; }
+    .dest-hub-txt { font-size: 13px; font-weight: 800; margin-top: 6px; }
+    .pin-txt { font-size: 13px; font-weight: 800; margin-top: 2px; }
+
+    .payment-type { font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+    .date-heading { font-size: 11px; color: #4b5563; font-weight: 600; }
+    .date-val { font-size: 10.5px; font-weight: 700; }
+
+    .ref-section { padding-top: 4px; }
+    .ref-id-txt { font-size: 13px; font-weight: 800; margin-bottom: 4px; }
+
+    .footer-txt { font-size: 10px; color: #6b7280; text-align: right; margin-top: 10px; }
+
+    @media print {
+      body { padding: 0; background: #fff; }
+      .btn-print { display: none; }
+      .label-box { border: 2px solid #000; box-shadow: none; width: 100%; max-width: 440px; }
+    }
   </style>
 </head>
 <body>
-  <button class="btn-print" onclick="window.print()">🖨️ Print Label</button>
+  <button class="btn-print" onclick="window.print()">🖨️ Print Shipping Label</button>
   <div class="label-box">
-    <div class="header">
-      <span class="sort-code">${sortCode}</span>
-      <span class="brand">DELHIVERY</span>
+
+    <!-- Top Header -->
+    <div class="top-row">
+      <div class="company-title">${companyName}</div>
+      <div class="delhivery-brand">
+        <svg class="delhivery-logo-svg" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="30" font-family="Arial, sans-serif" font-weight="900" font-size="32" fill="#000000" letter-spacing="-1">DELH</text>
+          <text x="92" y="30" font-family="Arial, sans-serif" font-weight="900" font-size="32" fill="#DC2626">I</text>
+          <text x="104" y="30" font-family="Arial, sans-serif" font-weight="900" font-size="32" fill="#000000" letter-spacing="-1">VERY</text>
+        </svg>
+      </div>
     </div>
-    <div class="awb-txt">AWB# ${awb}</div>
-    <div class="barcode-wrap"><svg id="awb-barcode"></svg></div>
-    <div class="meta-bar">
-      <span>PIN: ${consigneePin}</span>
-      <span>${paymentType}</span>
+
+    <!-- AWB & Barcode -->
+    <div class="awb-header">AWB# ${awb}</div>
+    <div class="barcode-area">
+      ${mainBarcode ? `<img src="${mainBarcode}" alt="AWB Barcode" />` : `<svg id="main-awb-barcode"></svg>`}
+    </div>
+
+    <!-- Sort Bar -->
+    <div class="sort-bar">
+      <span>${consigneePin}</span>
+      <span>AWB# ${awb}</span>
       <span>${sortCode}</span>
     </div>
-    <div style="margin-bottom: 8px;">
-      <div class="consignee-title">Ship To:</div>
-      <div class="consignee-name">${consigneeName}</div>
-      <div>${consigneeAddress}</div>
-      <div>${consigneeCity}${consigneeState ? ', ' + consigneeState : ''} - <strong>${consigneePin}</strong></div>
-    </div>
-    ${orderId ? `
-      <div style="border-top: 1px solid #000; pt: 6px; margin-top: 6px;">
-        <div style="font-weight: 700; font-size: 11px;">Order Ref: ${orderId}</div>
-        <div class="barcode-wrap"><svg id="order-barcode"></svg></div>
+
+    <!-- Details Grid -->
+    <div class="main-grid">
+      <div class="ship-col">
+        <div class="ship-to-txt">Ship to - <span class="consignee-name">${consigneeName}</span></div>
+        <div class="address-txt">${consigneeAddress}</div>
+        <div class="dest-hub-txt">${destinationHub}</div>
+        <div class="pin-txt">PIN - ${consigneePin}</div>
       </div>
-    ` : ''}
+      <div class="meta-col">
+        <div class="payment-type">${paymentMode}</div>
+        <div>
+          <div class="date-heading">Date</div>
+          <div class="date-val">${dateFormatted}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Ref Section -->
+    <div class="ref-section">
+      <div class="ref-id-txt">${orderId}</div>
+      <div class="barcode-area" style="text-align: left; margin: 2px 0;">
+        ${oidBarcode ? `<img src="${oidBarcode}" alt="Order Barcode" style="height: 42px;" />` : `<svg id="oid-barcode"></svg>`}
+      </div>
+    </div>
+
+    <div class="footer-txt">Page 1 of 1</div>
   </div>
+
   <script>
     window.onload = function() {
-      try {
-        JsBarcode("#awb-barcode", "${awb}", { format: "CODE128", width: 2, height: 50, displayValue: false });
-      } catch(e) {}
-      ${orderId ? `
+      ${!mainBarcode ? `
         try {
-          JsBarcode("#order-barcode", "${orderId}", { format: "CODE128", width: 1.5, height: 35, displayValue: false });
+          JsBarcode("#main-awb-barcode", "${awb}", { format: "CODE128", width: 2, height: 58, displayValue: false });
+        } catch(e) {}
+      ` : ''}
+      ${!oidBarcode ? `
+        try {
+          JsBarcode("#oid-barcode", "${orderId}", { format: "CODE128", width: 1.5, height: 42, displayValue: false });
         } catch(e) {}
       ` : ''}
     };
