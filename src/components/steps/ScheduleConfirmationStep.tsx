@@ -19,22 +19,8 @@ export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
   const [pickupTime, setPickupTime] = useState('11:00:00');
   const [pickupError, setPickupError] = useState('');
 
-  const handleDownloadLabel = async (wb: string) => {
-    setDownloadingLabel(true);
-    try {
-      await printDelhiveryLabel(wb);
-    } catch (e) {
-      console.warn('printDelhiveryLabel fallback to downloadDelhiveryLabel:', e);
-      try {
-        await downloadDelhiveryLabel(wb);
-      } catch (fallbackErr) {
-        console.error(fallbackErr);
-        // Direct browser print window fallback
-        window.open(`/api/delhivery/label?waybill=${wb}`, '_blank');
-      }
-    } finally {
-      setDownloadingLabel(false);
-    }
+  const handleDownloadLabel = (wb: string) => {
+    window.open(`/api/delhivery/label?waybill=${wb}`, '_blank');
   };
 
   const handleRequestPickup = async () => {
