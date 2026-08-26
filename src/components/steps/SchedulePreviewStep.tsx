@@ -214,12 +214,18 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         });
 
         const rawPhone = (formData.phone || '').replace(/\D/g, '');
-        const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : '9999999999';
+        const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : '7206806898';
+        const customerName = formData.customer_name && formData.customer_name.trim() && formData.customer_name !== 'Customer'
+          ? formData.customer_name
+          : 'Valued Customer';
+
         const payload = {
-          name: formData.customer_name || 'Customer',
-          add: formData.phone ? `${formData.address || 'N/A'}, Ph: ${formData.country_code || '+91'} ${formData.phone}` : (formData.address || 'N/A'),
-          pin: parseInt(formData.pincode || '201301', 10),
-          city: formData.city || 'Noida', state: formData.state || 'Uttar Pradesh', country: formData.country || 'India',
+          name: customerName,
+          add: `${formData.address || 'Noida'}, Ph: ${formData.country_code || '+91'} ${phone}`,
+          pin: parseInt(formData.pincode || '201318', 10),
+          city: formData.city || 'Noida',
+          state: formData.state || 'Uttar Pradesh',
+          country: formData.country || 'India',
           phone,
           order: `${formData.orderId}-PKG${i + 1}`,
           payment_mode: sh.payment_mode || 'Prepaid',
@@ -241,7 +247,8 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
           const result = res.results?.[0];
           const data = result?.data as Record<string, unknown> | undefined;
           const pkgs = data?.packages as Record<string, unknown>[] | undefined;
-          wb = pkgs?.[0]?.waybill as string | undefined;
+          const pkg = pkgs?.[0];
+          wb = (pkg?.waybill || pkg?.wbn) as string | undefined;
           if (!wb && data?.upload_wbn) {
             wb = String(data.upload_wbn);
           }

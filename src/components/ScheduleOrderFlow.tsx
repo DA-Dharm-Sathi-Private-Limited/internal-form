@@ -76,18 +76,29 @@ export default function ScheduleOrderFlow() {
             };
         });
 
+        const cust = (order.customerDetails || order || {}) as any;
+        const customerName = cust.customer_name || cust.name || cust.customerName || 'Customer';
+        const customerEmail = cust.email || cust.customerEmail || '';
+        const customerPhone = cust.phone || cust.customerPhone || cust.customer_phone || '';
+        const countryCode = cust.country_code || '+91';
+        const address = cust.address || cust.customerAddress || '';
+        const city = cust.city || cust.customerCity || 'Noida';
+        const state = cust.state || cust.customerState || 'Uttar Pradesh';
+        const country = cust.country || 'India';
+        const pincode = cust.pincode || cust.customerPincode || '201301';
+
         updateForm({
-            invoiceId: order.zohoInvoiceId,
+            invoiceId: order.zohoInvoiceId || order.orderId,
             orderId: order.orderId,
-            customer_name: order.customerDetails.customer_name,
-            email: order.customerDetails.email,
-            phone: order.customerDetails.phone,
-            country_code: order.customerDetails.country_code,
-            address: order.customerDetails.address,
-            city: order.customerDetails.city,
-            state: order.customerDetails.state,
-            country: order.customerDetails.country,
-            pincode: order.customerDetails.pincode,
+            customer_name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            country_code: countryCode,
+            address,
+            city,
+            state,
+            country,
+            pincode,
             warehouse: (order as any).warehouse || 'ganpati jaipur',
             products_desc: 'Spiritual Items / Gems / Malas',
             invoice_items: normalizedItems,
