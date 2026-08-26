@@ -87,9 +87,14 @@ export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
                 <p className="text-lg font-mono font-bold text-white mb-4">{wb}</p>
               </div>
               {partner === 'Delhivery' && (
-                <button className="btn btn-primary w-full text-sm py-2" onClick={() => handleDownloadLabel(wb)} disabled={downloadingLabel}>
-                  {downloadingLabel ? 'Fetching...' : '🏷️ Download Label'}
-                </button>
+                <div className="flex gap-2">
+                  <button className="btn btn-primary flex-1 text-xs py-2" onClick={() => window.open(`/api/delhivery/label?waybill=${wb}&download=true`, '_self')}>
+                    📥 Download PDF
+                  </button>
+                  <button className="btn bg-[#2a2a38] hover:bg-[#3a3a4a] text-white flex-1 text-xs py-2 border border-[#3a3a4a]" onClick={() => window.open(`/api/delhivery/label?waybill=${wb}`, '_blank')}>
+                    🖨️ Open / Print
+                  </button>
+                </div>
               )}
               {partner !== 'Delhivery' && (
                 <div className="text-xs text-gray-500 text-center py-2">

@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
     const pkg = pkgList[0] || {};
     const pdfUrl = pkg.pdf_download_link || pkg.pdf_url;
 
+    const isDownload = searchParams.get('download') === 'true';
+
     // If official Delhivery PDF URL exists, fetch and serve the official PDF directly!
     if (pdfUrl) {
       try {
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
             status: 200,
             headers: {
               'Content-Type': 'application/pdf',
-              'Content-Disposition': `inline; filename="delhivery-label-${waybill}.pdf"`,
+              'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="delhivery-label-${waybill}.pdf"`,
               'Content-Length': String(pdfBuffer.byteLength),
             },
           });
