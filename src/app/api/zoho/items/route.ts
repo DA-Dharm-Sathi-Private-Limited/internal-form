@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server';
 import { fetchAllActiveItems } from '@/lib/zoho';
-import { withError, success } from '@/lib/api-handler';
+import { success } from '@/lib/api-handler';
 
-export const GET = withError(async () => {
-  const items = await fetchAllActiveItems();
-  return success({ items });
-});
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    const items = await fetchAllActiveItems();
+    return success({ items });
+  } catch (err) {
+    console.warn('Zoho items fetch failed, returning fallback empty items:', err);
+    return success({ items: [] });
+  }
+}
