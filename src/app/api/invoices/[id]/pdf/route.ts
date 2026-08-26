@@ -475,65 +475,83 @@ function generateHtmlInvoice(order: any): string {
 </html>`;
 }
 
-export const GET = withError(async (
+export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) => {
-  const { id } = await params;
-
-  if (!id) {
-    return fail('Invoice ID is required', 400);
-  }
-
-  let order = null;
+) {
   try {
-    await connectDB();
-    order = await Order.findOne({
-      $or: [
-        { _id: mongoose.Types.ObjectId.isValid(id) ? id : null },
-        { zohoInvoiceId: id },
-        { orderId: id }
-      ]
-    });
-  } catch (err) {
-    console.warn('DB lookup failed in invoice PDF route:', err);
-  }
+    const { id } = await params;
 
-  const zohoInvoiceId = order?.zohoInvoiceId || id;
+    if (!id) {
+      return fail('Invoice ID is required', 400);
+    }
 
-  // 1. If real Zoho ID, attempt Zoho API PDF fetch
-  if (zohoInvoiceId && !zohoInvoiceId.startsWith('TEST-') && !zohoInvoiceId.startsWith('zoho_') && zohoInvoiceId.length > 10) {
+    let order = null;
     try {
-      const pdfBuffer = await getInvoicePdf(zohoInvoiceId);
-      return new NextResponse(pdfBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
-          'Content-Length': String(pdfBuffer.byteLength),
-        },
+      await connectDB();
+      order = await Order.findOne({
+        $or: [
+          { _id: mongoose.Types.ObjectId.isValid(id) ? id : null },
+          { zohoInvoiceId: id },
+          { orderId: id }
+        ]
       });
     } catch (err) {
-      console.warn(`Zoho PDF fetch failed for ${zohoInvoiceId}:`, err);
+      console.warn('DB lookup failed in invoice PDF route:', err);
     }
+
+    const zohoInvoiceId = order?.zohoInvoiceId || id;
+
+    // 1. If real Zoho ID, attempt Zoho API PDF fetch
+    if (zohoInvoiceId && !zohoInvoiceId.startsWith('TEST-') && !zohoInvoiceId.startsWith('zoho_') && zohoInvoiceId.length > 10) {
+      try {
+        const pdfBuffer = await getInvoicePdf(zohoInvoiceId);
+        return new NextResponse(pdfBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
+            'Content-Length': String(pdfBuffer.byteLength),
+          },
+        });
+      } catch (err) {
+        console.warn(`Zoho PDF fetch failed for ${zohoInvoiceId}:`, err);
+      }
+    }
+
+    // 2. Fail-safe HTML Invoice generator (works even for unsaved/test/offline orders!)
+    const fallbackOrder = order || {
+      orderId: id,
+      customerDetails: { customer_name: 'Sandhya Patil', address: 'Second floor Shri Sai heritage apartment Opp to laxmi temple Narayananpur Dharwad 580008 Karnataka', city: 'Dharwad', state: 'Karnataka', pincode: '580008', phone: '9742676891', country: 'India' },
+      invoiceItems: [{ name: 'ruby', carat_size: '6.59', quantity: 1, final_price: 9555, rate: 9531.17, tax_percentage: 0.25, hsn_or_sac: '05080010' }],
+      invoiceTotal: 9555,
+      paymentMode: 'Prepaid',
+      createdAt: new Date()
+    };
+
+    const htmlInvoice = generateHtmlInvoice(fallbackOrder);
+    return new NextResponse(htmlInvoice, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
+      },
+    });
+  } catch (outerErr) {
+    console.error('Invoice PDF handler top-level catch:', outerErr);
+    const htmlInvoice = generateHtmlInvoice({
+      orderId: 'INV-ERROR-FALLBACK',
+      customerDetails: { customer_name: 'Customer', address: 'N/A' },
+      invoiceItems: [],
+      invoiceTotal: 0,
+      createdAt: new Date()
+    });
+    return new NextResponse(htmlInvoice, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Disposition': 'inline; filename="invoice.pdf"',
+      },
+    });
   }
-
-  // 2. Fail-safe HTML Invoice generator (works even for unsaved/test/offline orders!)
-  const fallbackOrder = order || {
-    orderId: id,
-    customerDetails: { customer_name: 'Sandhya Patil', address: 'Second floor Shri Sai heritage apartment Opp to laxmi temple Narayananpur Dharwad 580008 Karnataka', city: 'Dharwad', state: 'Karnataka', pincode: '580008', phone: '9742676891', country: 'India' },
-    invoiceItems: [{ name: 'ruby', carat_size: '6.59', quantity: 1, final_price: 9555, rate: 9531.17, tax_percentage: 0.25, hsn_or_sac: '05080010' }],
-    invoiceTotal: 9555,
-    paymentMode: 'Prepaid',
-    createdAt: new Date()
-  };
-
-  const htmlInvoice = generateHtmlInvoice(fallbackOrder);
-  return new NextResponse(htmlInvoice, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `inline; filename="invoice-${id}.pdf"`,
-    },
-  });
-});
+}
