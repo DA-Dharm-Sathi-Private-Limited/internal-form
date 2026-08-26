@@ -179,7 +179,7 @@ async function generateLabelHtml(pkg: Record<string, any>, waybill: string): Pro
 </html>`;
 }
 
-async function printDelhiveryLabel(waybill: string): Promise<void> {
+export async function printDelhiveryLabel(waybill: string): Promise<void> {
   const pkg = await getLabelData(waybill);
   const html = await generateLabelHtml(pkg, waybill);
 

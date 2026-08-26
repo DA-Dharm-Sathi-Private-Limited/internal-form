@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CombinedFormData } from '@/types/wizard';
-import { downloadDelhiveryLabel } from '@/lib/printLabel';
+import { downloadDelhiveryLabel, printDelhiveryLabel } from '@/lib/printLabel';
 import { delhiveryService } from '@/services/delhivery';
 
 interface Props {
@@ -22,10 +22,16 @@ export default function ScheduleConfirmationStep({ formData, onReset }: Props) {
   const handleDownloadLabel = async (wb: string) => {
     setDownloadingLabel(true);
     try {
-      await downloadDelhiveryLabel(wb);
+      await printDelhiveryLabel(wb);
     } catch (e) {
-      console.error(e);
-      alert(e instanceof Error ? e.message : 'Error printing label.');
+      console.warn('printDelhiveryLabel fallback to downloadDelhiveryLabel:', e);
+      try {
+        await downloadDelhiveryLabel(wb);
+      } catch (fallbackErr) {
+        console.error(fallbackErr);
+        // Direct browser print window fallback
+        window.open(`/api/delhivery/label?waybill=${wb}`, '_blank');
+      }
     } finally {
       setDownloadingLabel(false);
     }
