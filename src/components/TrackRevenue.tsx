@@ -51,26 +51,35 @@ export default function TrackRevenue() {
       setLoading(true);
       setError("");
 
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const istNow = new Date(now.getTime() + (330 * 60 * 1000));
+      const todayStartIST = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 0, 0, 0) - (330 * 60 * 1000));
+      const todayEndIST = new Date(todayStartIST.getTime() + (24 * 3600 * 1000) - 1);
 
       let params: Record<string, string | undefined> = {};
-      if (dateFilter === "weekly") {
-        const past = new Date(today);
-        past.setDate(today.getDate() - today.getDay());
-        past.setHours(0, 0, 0, 0);
-        params = { startDate: past.toISOString(), endDate: today.toISOString() };
+
+      if (dateFilter === "today") {
+        params = { startDate: todayStartIST.toISOString(), endDate: todayEndIST.toISOString() };
+      } else if (dateFilter === "weekly") {
+        const weekStart = new Date(todayStartIST);
+        weekStart.setDate(todayStartIST.getDate() - todayStartIST.getDay());
+        params = { startDate: weekStart.toISOString(), endDate: todayEndIST.toISOString() };
       } else if (dateFilter === "monthly") {
-        const past = new Date(today.getFullYear(), today.getMonth(), 1);
-        past.setHours(0, 0, 0, 0);
-        params = { startDate: past.toISOString(), endDate: today.toISOString() };
+        const monthStart = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1, 0, 0, 0) - (330 * 60 * 1000));
+        params = { startDate: monthStart.toISOString(), endDate: todayEndIST.toISOString() };
       } else if (dateFilter === "yearly") {
-        const past = new Date(today.getFullYear(), 0, 1);
-        past.setHours(0, 0, 0, 0);
-        params = { startDate: past.toISOString(), endDate: today.toISOString() };
+        const yearStart = new Date(Date.UTC(istNow.getUTCFullYear(), 0, 1, 0, 0, 0) - (330 * 60 * 1000));
+        params = { startDate: yearStart.toISOString(), endDate: todayEndIST.toISOString() };
       } else if (dateFilter === "custom") {
-        if (startDate) params.startDate = new Date(startDate).toISOString();
-        if (endDate) params.endDate = new Date(endDate).toISOString();
+        if (startDate) {
+          const s = new Date(startDate);
+          params.startDate = s.toISOString();
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          e.setHours(23, 59, 59, 999);
+          params.endDate = e.toISOString();
+        }
       }
 
       const json = await ordersService.getRevenue(params);
