@@ -15,12 +15,10 @@ export async function GET(request: NextRequest) {
     try {
       const conn = await connectDB();
       if (conn) {
-        const fetchPromise = Order.find({ status: { $ne: 'RTO' } }).sort({ createdAt: -1 }).lean();
-        const timeoutPromise = new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3500));
-        dbOrders = await Promise.race([fetchPromise, timeoutPromise]);
+        dbOrders = await Order.find({}).sort({ createdAt: -1 }).lean();
       }
-    } catch {
-      // Fallback if DB connection fails
+    } catch (err) {
+      console.warn('[Dashboard API] DB Connection Notice:', err);
     }
 
     const localOrders = getPersistentOrders();
