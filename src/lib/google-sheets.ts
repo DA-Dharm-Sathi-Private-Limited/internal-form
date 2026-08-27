@@ -83,14 +83,50 @@ export async function appendOrderToGoogleSheet(order: SyncOrderRow) {
       },
     });
 
-    // 2. Append to 'Live Tracker' tab
+    // 2. Append to Month Tab (e.g. August'26)
+    const monthName = now.toLocaleString('en-US', { month: 'long' });
+    const yearShort = String(now.getFullYear()).slice(-2);
+    const monthTabName = `${monthName}'${yearShort}`;
+
+    const monthRow = [
+      trackerDateFormatted,
+      order.shippingPartner.includes('Delhivery') ? 'Delhivery Courier' : order.shippingPartner,
+      order.invoiceNumber,
+      order.awb,
+      '', // Self
+      order.fromLocation || 'ganpati jaipur',
+      order.toCustomer || 'Customer',
+      order.pincode || '',
+      order.city || '',
+      order.state || '',
+      order.poc || 'Salesperson',
+      '', // Reaching Date
+      'Yes', // Picked
+      'No', // Reached
+      'Yes', // Scheduled
+    ];
+
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: sheetId,
+        range: `'${monthTabName}'!A:O`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [monthRow],
+        },
+      });
+    } catch (monthErr) {
+      console.warn(`[Google Sheets] Month tab '${monthTabName}' notice:`, monthErr);
+    }
+
+    // 3. Append to 'Live Tracker' tab
     const trackerRow = [
       trackerDateFormatted,
       order.shippingPartner.replace(' Courier', ''),
       order.invoiceNumber,
       order.awb,
       '', // Self
-      '', // From
+      order.fromLocation || 'ganpati jaipur',
       order.toCustomer || 'Customer',
       now.toISOString(),
       order.status || 'Manifested',
