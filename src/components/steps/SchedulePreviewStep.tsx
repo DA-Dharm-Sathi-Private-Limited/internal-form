@@ -263,6 +263,23 @@ export default function SchedulePreviewStep({ formData, updateForm, onNext, onPr
         allWaybills.push(wb);
         saveWaybillToHistory(wb, formData.orderId ?? '', formData.customer_name ?? '');
 
+        // Sync with Google Sheets automatically
+        fetch('/api/google-sheets/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shippingPartner: 'Delhivery',
+            invoiceNumber: formData.orderId || '',
+            awb: wb,
+            fromLocation: sh.warehouse || formData.warehouse || 'ganpati jaipur',
+            toCustomer: formData.customer_name || 'Customer',
+            pincode: formData.pincode || '',
+            city: formData.city || '',
+            state: formData.state || '',
+            poc: formData.salesperson_name || 'Salesperson',
+          }),
+        }).catch(err => console.warn('[Google Sheets Sync Notice]:', err));
+
         createdShipmentsForOrder.push({
           vendor: sh.warehouse || sh.vendor || 'DELHIVERY',
           deliveryPartner: 'Delhivery',
