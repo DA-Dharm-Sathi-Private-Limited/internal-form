@@ -12,14 +12,28 @@ import RevenueOrderCard from "./RevenueOrderCard";
 interface SalespersonRevenue {
   salespersonName: string;
   totalRevenue: number;
+  weeklyRevenue?: number;
+  monthlyRevenue?: number;
+  yearlyRevenue?: number;
+  lifetimeRevenue?: number;
+  firstOrderDate?: string | null;
   orderCount: number;
   orders: OrderData[];
+}
+
+interface SummaryData {
+  totalWeekly: number;
+  totalMonthly: number;
+  totalYearly: number;
+  totalLifetime: number;
+  totalOrderCount: number;
 }
 
 const RANK_EMOJIS = ["🥇", "🥈", "🥉", "4️⃣"];
 
 export default function TrackRevenue() {
   const [data, setData] = useState<SalespersonRevenue[]>([]);
+  const [summary, setSummary] = useState<SummaryData | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedPerson, setExpandedPerson] = useState<string | null>(null);
@@ -50,14 +64,22 @@ export default function TrackRevenue() {
         const past = new Date(today.getFullYear(), today.getMonth(), 1);
         past.setHours(0, 0, 0, 0);
         params = { startDate: past.toISOString(), endDate: today.toISOString() };
+      } else if (dateFilter === "yearly") {
+        const past = new Date(today.getFullYear(), 0, 1);
+        past.setHours(0, 0, 0, 0);
+        params = { startDate: past.toISOString(), endDate: today.toISOString() };
       } else if (dateFilter === "custom") {
         if (startDate) params.startDate = new Date(startDate).toISOString();
         if (endDate) params.endDate = new Date(endDate).toISOString();
       }
 
       const json = await ordersService.getRevenue(params);
+      const resData = json as any;
       if (json.success) {
         setData(json.data as unknown as SalespersonRevenue[]);
+        if (resData.summary) {
+          setSummary(resData.summary as unknown as SummaryData);
+        }
       } else {
         setError(json.error || "Failed to load revenue data");
       }
@@ -185,6 +207,7 @@ export default function TrackRevenue() {
           totalRevenue={totalAllRevenue}
           totalOrders={totalAllOrders}
           salespersonCount={data.length}
+          summary={summary}
         />
       )}
 
@@ -231,11 +254,31 @@ export default function TrackRevenue() {
                 {RANK_EMOJIS[idx] || `#${idx + 1}`}
               </div>
               <div className="flex-1">
-                <div className="text-lg font-bold text-gray-900 dark:text-white mb-0.5">
-                  {sp.salespersonName}
+                <div className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2 flex-wrap">
+                  <span>{sp.salespersonName}</span>
+                  {sp.firstOrderDate && (
+                    <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full font-normal">
+                      Joined: {new Date(sp.firstOrderDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
                 </div>
-                <div className="text-sm text-gray-500">
-                  {sp.orderCount} order{sp.orderCount !== 1 ? "s" : ""}
+                <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                  <span>{sp.orderCount} order{sp.orderCount !== 1 ? "s" : ""}</span>
+                  {typeof sp.weeklyRevenue === 'number' && (
+                    <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-medium">
+                      Week: {formatCurrency(sp.weeklyRevenue)}
+                    </span>
+                  )}
+                  {typeof sp.monthlyRevenue === 'number' && (
+                    <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
+                      Month: {formatCurrency(sp.monthlyRevenue)}
+                    </span>
+                  )}
+                  {typeof sp.yearlyRevenue === 'number' && (
+                    <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
+                      Year: {formatCurrency(sp.yearlyRevenue)}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mr-4">

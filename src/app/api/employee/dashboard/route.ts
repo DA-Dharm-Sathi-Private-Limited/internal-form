@@ -267,14 +267,31 @@ export async function GET(request: NextRequest) {
     // Dynamic Chart Data Generation (Respects Custom Date Range if specified)
     const dailyChartMap: Record<string, { date: string; displayDate: string; revenue: number; profit: number; orderCount: number }> = {};
     
-    let chartDays = 14;
-    let chartStartDate = new Date(todayStart);
-    chartStartDate.setDate(chartStartDate.getDate() - 13);
+    const daysParam = searchParams.get('days') || '30';
+    let chartDays = 30;
+    if (daysParam === '14') chartDays = 14;
+    else if (daysParam === '60') chartDays = 60;
+    else if (daysParam === '90') chartDays = 90;
+    else if (daysParam === '365' || daysParam === 'yearly') chartDays = 365;
 
-    if (startDateParam && endDateParam) {
+    let chartStartDate = new Date(todayStart);
+    chartStartDate.setDate(chartStartDate.getDate() - (chartDays - 1));
+
+    if (startDateParam) {
       chartStartDate = new Date(startDateParam);
-      const endDate = new Date(endDateParam);
-      chartDays = Math.max(1, Math.ceil((endDate.getTime() - chartStartDate.getTime()) / (1000 * 3600 * 24)) + 1);
+      if (endDateParam) {
+        const endDate = new Date(endDateParam);
+        chartDays = Math.max(1, Math.ceil((endDate.getTime() - chartStartDate.getTime()) / (1000 * 3600 * 24)) + 1);
+      } else {
+        chartDays = Math.max(1, Math.ceil((todayStart.getTime() - chartStartDate.getTime()) / (1000 * 3600 * 24)) + 1);
+      }
+    } else if (daysParam === 'all' && targetOrders.length > 0) {
+      const earliestOrder = [...targetOrders].sort((a, b) => new Date(a.createdAt || a.invoiceDate || 0).getTime() - new Date(b.createdAt || b.invoiceDate || 0).getTime())[0];
+      if (earliestOrder) {
+        chartStartDate = new Date(earliestOrder.createdAt || earliestOrder.invoiceDate || todayStart);
+        chartStartDate.setHours(0, 0, 0, 0);
+        chartDays = Math.max(1, Math.ceil((todayStart.getTime() - chartStartDate.getTime()) / (1000 * 3600 * 24)) + 1);
+      }
     }
 
     for (let i = 0; i < chartDays; i++) {

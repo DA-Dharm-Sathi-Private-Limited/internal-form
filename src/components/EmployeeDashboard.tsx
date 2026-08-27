@@ -100,6 +100,7 @@ export default function EmployeeDashboard() {
   const [activeHoverPoint, setActiveHoverPoint] = useState<ChartPoint | null>(null);
 
   // Line Chart Date Range Filter States
+  const [chartDays, setChartDays] = useState<string>('30');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
 
@@ -131,7 +132,7 @@ export default function EmployeeDashboard() {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      let url = `/api/employee/dashboard?salesperson=${encodeURIComponent(selectedSalesperson)}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
+      let url = `/api/employee/dashboard?salesperson=${encodeURIComponent(selectedSalesperson)}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}&days=${chartDays}`;
       if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
       if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
 
@@ -156,7 +157,7 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     fetchDashboard();
-  }, [selectedSalesperson, startDate, endDate]);
+  }, [selectedSalesperson, startDate, endDate, chartDays]);
 
   const handleSearchClientHistory = async (query: string) => {
     if (!query.trim()) return;
@@ -453,10 +454,32 @@ export default function EmployeeDashboard() {
             </p>
           </div>
 
-          {/* DATE RANGE FILTER INTEGRATED IN LINE CHART HEADER */}
+          {/* DATE RANGE FILTER & TIMEFRAME PRESETS INTEGRATED IN LINE CHART HEADER */}
           <div className="flex items-center gap-2 flex-wrap bg-[var(--bg-input)] p-2 rounded-xl border border-[var(--border)]">
-            <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] font-semibold">
-              <Filter className="w-3.5 h-3.5 text-[var(--accent)]" /> Date Range:
+            <div className="flex gap-1 mr-2">
+              {[
+                { key: '14', label: '14D' },
+                { key: '30', label: '30D' },
+                { key: '90', label: '90D' },
+                { key: '365', label: '2026' },
+                { key: 'all', label: 'All' },
+              ].map((btn) => (
+                <button
+                  key={btn.key}
+                  onClick={() => { setChartDays(btn.key); setStartDate(''); setEndDate(''); }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    chartDays === btn.key && !startDate && !endDate
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-[var(--bg-card)] text-gray-400 hover:text-white border border-[var(--border)]'
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] font-semibold border-l border-[var(--border)] pl-2">
+              <Filter className="w-3.5 h-3.5 text-[var(--accent)]" /> Range:
             </div>
             <input
               type="date"

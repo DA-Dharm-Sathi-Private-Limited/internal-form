@@ -1,6 +1,6 @@
 "use client";
 
-export type DateFilterType = "custom" | "weekly" | "monthly" | "all";
+export type DateFilterType = "custom" | "weekly" | "monthly" | "yearly" | "all";
 
 interface RevenueDateFilterProps {
   dateFilter: DateFilterType;
@@ -12,9 +12,10 @@ interface RevenueDateFilterProps {
 }
 
 const FILTERS: { key: DateFilterType; label: string }[] = [
-  { key: "all", label: "All Time" },
-  { key: "weekly", label: "This Week" },
+  { key: "all", label: "All Time (Lifetime)" },
+  { key: "yearly", label: "This Year" },
   { key: "monthly", label: "This Month" },
+  { key: "weekly", label: "This Week" },
   { key: "custom", label: "Custom Range" },
 ];
 
@@ -35,7 +36,7 @@ export default function RevenueDateFilter({
             onClick={() => setDateFilter(f.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               dateFilter === f.key
-                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                ? "bg-indigo-600 text-white font-bold shadow-sm"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
             }`}
           >
@@ -46,19 +47,25 @@ export default function RevenueDateFilter({
 
       {dateFilter === "custom" && (
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-0 flex-1"
-          />
-          <span className="text-gray-400 text-sm">to</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-0 flex-1"
-          />
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-400 font-semibold mb-0.5">From Date</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <span className="text-gray-400 text-xs mt-4">to</span>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-400 font-semibold mb-0.5">To Date</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
         </div>
       )}
     </div>
