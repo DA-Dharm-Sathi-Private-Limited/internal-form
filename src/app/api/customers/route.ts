@@ -45,12 +45,18 @@ export const GET = withError(async (request: NextRequest) => {
             customer_id: o.orderId || `CUST-${Date.now()}`,
             display_name: cd.customer_name,
             phone: cd.phone || '',
+            email: cd.email || '',
+            address: cd.address || '',
+            pincode: cd.pincode || '',
+            city: cd.city || '',
+            state: cd.state || '',
             billing_address: {
               attention: cd.customer_name,
               address: cd.address || '',
               city: cd.city || '',
               state: cd.state || '',
               zip: cd.pincode || '',
+              pincode: cd.pincode || '',
               country: cd.country || 'India'
             }
           });

@@ -135,7 +135,7 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
               city = prefilled.city || city;
               state = prefilled.state || state;
               if (prefilled.phone) rawPhone = prefilled.phone;
-            } else if (customer.customer_id) {
+            } else if ((!addressLine || !zip) && customer.customer_id) {
               try {
                 const data = await customerService.get(customer.customer_id);
                 if (data.customer) {
