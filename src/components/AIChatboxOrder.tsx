@@ -790,70 +790,88 @@ Items: 1. Raw Pyrite Bracelet 500, 2. 5 Mukhi Rudraksha Mala 800`;
                       <th className="p-2.5">Category & GST Tax Rate</th>
                       <th className="p-2.5 text-center w-16">Qty</th>
                       <th className="p-2.5 text-right w-24">Selling Price (₹)</th>
+                      <th className="p-2.5 text-right w-24">GST Tax (₹)</th>
                       <th className="p-2.5 text-right w-24">{selectedVendor} CP (₹)</th>
                       <th className="p-2.5 text-right w-24">Final Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
-                    {parsedOrder.items.map((it, idx) => (
-                      <tr key={idx} className="hover:bg-[var(--bg-hover)]">
-                        <td className="p-2.5">
-                          <input
-                            type="text"
-                            value={it.name}
-                            onChange={(e) => updateItemName(idx, e.target.value)}
-                            className="w-full p-1.5 font-bold text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none focus:ring-1 focus:ring-purple-400"
-                          />
-                        </td>
-                        <td className="p-2.5">
-                          <select
-                            value={
-                              it.hsn_or_sac === '14049070' ? 'rudraksha' :
-                              it.hsn_or_sac === '05080010' ? 'gemstone' :
-                              it.hsn_or_sac === '74198090' ? 'vastu' :
-                              it.hsn_or_sac === '999591' ? 'services' : 'bracelet'
-                            }
-                            onChange={(e) => handleCategoryTaxOverride(idx, e.target.value)}
-                            className="bg-purple-950/80 border border-purple-500/40 text-purple-200 text-[11px] font-bold px-2 py-1 rounded outline-none cursor-pointer"
-                          >
-                            <option value="rudraksha">📿 Rudraksha & Malas (0% GST)</option>
-                            <option value="gemstone">💎 Gemstones & Crystals (0.25% GST)</option>
-                            <option value="bracelet">✨ Bracelets & Decorative (3% GST)</option>
-                            <option value="vastu">⚡ Vastu & Metal Artifacts (12% GST)</option>
-                            <option value="services">🔮 Astrological Services (18% GST)</option>
-                          </select>
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={it.quantity}
-                            onChange={(e) => updateItemQuantity(idx, Number(e.target.value))}
-                            className="w-12 p-1 text-center font-bold text-xs bg-purple-950/60 border border-purple-500/40 rounded text-white outline-none"
-                          />
-                        </td>
-                        <td className="p-2.5 text-right">
-                          <input
-                            type="number"
-                            min="0"
-                            value={it.final_price}
-                            onChange={(e) => updateItemPrice(idx, Number(e.target.value))}
-                            className="w-20 p-1 text-right font-bold text-xs bg-purple-950/60 border border-emerald-500/40 text-emerald-400 rounded outline-none"
-                          />
-                        </td>
-                        <td className="p-2.5 text-right">
-                          <input
-                            type="number"
-                            value={it.cost_price}
-                            onChange={(e) => updateItemCp(idx, Number(e.target.value))}
-                            className="w-16 p-1 text-right font-bold text-xs bg-purple-950/60 border border-amber-500/40 text-amber-300 rounded outline-none"
-                          />
-                        </td>
-                        <td className="p-2.5 text-right font-bold text-[var(--text-primary)]">
-                          ₹{(it.final_price * it.quantity).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
+                    {parsedOrder.items.map((it, idx) => {
+                      const itemTaxTotal = (it.tax_amount || 0) * (it.quantity || 1);
+                      return (
+                        <tr key={idx} className="hover:bg-[var(--bg-hover)]">
+                          <td className="p-2.5">
+                            <input
+                              type="text"
+                              value={it.name}
+                              onChange={(e) => updateItemName(idx, e.target.value)}
+                              className="w-full p-1.5 font-bold text-xs bg-slate-900 border border-slate-700 rounded text-white outline-none focus:ring-2 focus:ring-purple-400"
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <select
+                              value={
+                                it.hsn_or_sac === '14049070' ? 'rudraksha' :
+                                it.hsn_or_sac === '05080010' ? 'gemstone' :
+                                it.hsn_or_sac === '74198090' ? 'vastu' :
+                                it.hsn_or_sac === '999591' ? 'services' : 'bracelet'
+                              }
+                              onChange={(e) => handleCategoryTaxOverride(idx, e.target.value)}
+                              className="bg-slate-900 border-2 border-purple-500 text-purple-200 text-xs font-bold px-2 py-1.5 rounded-lg outline-none cursor-pointer"
+                            >
+                              <option value="rudraksha" className="bg-slate-900 text-white font-medium">📿 Rudraksha & Malas (0% GST)</option>
+                              <option value="gemstone" className="bg-slate-900 text-white font-medium">💎 Gemstones & Crystals (0.25% GST)</option>
+                              <option value="bracelet" className="bg-slate-900 text-white font-medium">✨ Bracelets & Decorative (3% GST)</option>
+                              <option value="vastu" className="bg-slate-900 text-white font-medium">⚡ Vastu & Metal Artifacts (12% GST)</option>
+                              <option value="services" className="bg-slate-900 text-white font-medium">🔮 Astrological Services (18% GST)</option>
+                            </select>
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={it.quantity === 0 ? '' : it.quantity}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateItemQuantity(idx, val === '' ? 1 : Number(val));
+                              }}
+                              className="w-16 p-1.5 text-center font-black text-sm bg-slate-900 border-2 border-purple-500 rounded-lg text-white outline-none shadow-sm focus:ring-2 focus:ring-purple-400"
+                            />
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={it.final_price === 0 ? '' : it.final_price}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateItemPrice(idx, val === '' ? 0 : Number(val));
+                              }}
+                              className="w-24 p-1.5 text-right font-black text-sm bg-slate-900 border-2 border-emerald-500 text-emerald-300 rounded-lg outline-none shadow-sm focus:ring-2 focus:ring-emerald-400"
+                            />
+                          </td>
+                          <td className="p-2.5 text-right font-extrabold text-indigo-400">
+                            <span className="bg-indigo-950/80 px-2 py-1 rounded border border-indigo-800 text-xs">
+                              ₹{itemTaxTotal.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <input
+                              type="number"
+                              value={it.cost_price === 0 ? '' : it.cost_price}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateItemCp(idx, val === '' ? 0 : Number(val));
+                              }}
+                              className="w-20 p-1.5 text-right font-black text-sm bg-slate-900 border-2 border-amber-500 text-amber-300 rounded-lg outline-none shadow-sm focus:ring-2 focus:ring-amber-400"
+                            />
+                          </td>
+                          <td className="p-2.5 text-right font-black text-sm text-[var(--text-primary)]">
+                            ₹{(it.final_price * it.quantity).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

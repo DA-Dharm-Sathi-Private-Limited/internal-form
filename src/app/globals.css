@@ -227,6 +227,17 @@ select.form-input {
   padding-right: 2rem;
 }
 
+select option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  padding: 8px !important;
+}
+
+:root:not(.dark) select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 80px;

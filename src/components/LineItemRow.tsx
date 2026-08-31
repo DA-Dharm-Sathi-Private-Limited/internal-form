@@ -258,35 +258,42 @@ export default function LineItemRow({
                 </div>
 
                 <div className="line-item-field line-item-qty">
-                    <label>Qty *</label>
+                    <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Qty *</label>
                     <input
                         type="number"
-                        className="form-input"
+                        className="form-input font-black text-base text-[var(--text-primary)] bg-[var(--bg-input)] border-2 border-indigo-500/40 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
                         min="1"
                         step="1"
-                        value={item.quantity}
+                        value={item.quantity === 0 ? '' : item.quantity}
                         disabled={readOnlyAllExceptCostPrice}
-                        onChange={(e) => onChange(index, { quantity: Number(e.target.value) || 0 })}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            onChange(index, { quantity: val === '' ? 1 : Number(val) });
+                        }}
                         required
                     />
                 </div>
 
                 {/* Tax selector — required, shown before Final Price so user picks tax first */}
                 <div className="line-item-field line-item-tax">
-                    <label>Tax *</label>
+                    <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Tax *</label>
                     <select
-                        className="form-input"
+                        className="form-input font-bold text-xs text-[var(--text-primary)] bg-[var(--bg-input)] border-2 border-purple-500/40 rounded-lg p-2 focus:ring-2 focus:ring-purple-500 cursor-pointer"
                         value={item.tax_id || ''}
                         disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { tax_id: e.target.value })}
                         required
                     >
-                        <option value="" disabled>Select tax…</option>
-                        <option value="NO_TAX">No Tax (0%)</option>
+                        <option value="" disabled className="bg-slate-900 text-white">Select tax…</option>
+                        <option value="NO_TAX" className="bg-slate-900 text-white font-medium">No Tax (0%)</option>
                         {safeZohoTaxes.map(t => (
-                            <option key={t.tax_id} value={t.tax_id}>{t.tax_name} ({t.tax_percentage}%)</option>
+                            <option key={t.tax_id} value={t.tax_id} className="bg-slate-900 text-white font-medium">{t.tax_name} ({t.tax_percentage}%)</option>
                         ))}
                     </select>
+                    <div className="mt-1 text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-1 rounded border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+                        <span>GST Tax:</span>
+                        <span>₹{taxAmount.toFixed(2)}</span>
+                    </div>
                     {item.tax_auto_corrected && item.tax_correction_note && (
                         <div
                             className="mt-1 text-xs rounded-md px-2 py-1"
