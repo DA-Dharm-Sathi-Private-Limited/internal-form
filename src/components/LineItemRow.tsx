@@ -97,7 +97,25 @@ export default function LineItemRow({
         ? item.final_price 
         : (Number(item.price || (item as any).rate || 0) + (qty > 0 ? (item.tax_amount || 0) / qty : 0));
     const preTaxRate = Number(item.price) || (finalPriceUnit > 0 ? finalPriceUnit : 0);
-    const taxAmount = item.tax_amount || 0;
+
+    const selectedTaxRate = (() => {
+        if (item.tax_id && item.tax_id !== 'NO_TAX') {
+            const t = safeZohoTaxes.find(tx => tx.tax_id === item.tax_id);
+            if (t) return t.tax_percentage;
+        }
+        if (item.hsn_or_sac === '71179090' || item.hsn_or_sac === '44209090') return 3;
+        if (item.hsn_or_sac === '05080010') return 0.25;
+        if (item.hsn_or_sac === '74198090' || item.hsn_or_sac === '83062990') return 12;
+        if (item.hsn_or_sac === '999591') return 18;
+        return 0;
+    })();
+
+    const taxAmount = (item.tax_amount && item.tax_amount > 0)
+        ? item.tax_amount
+        : (selectedTaxRate > 0 && finalPriceUnit > 0 
+            ? Math.round((finalPriceUnit - (finalPriceUnit / (1 + selectedTaxRate / 100))) * qty * 100) / 100 
+            : 0);
+
     const itemTotal = (item.item_total && item.item_total > 0) ? item.item_total : (finalPriceUnit * qty);
 
     return (
@@ -261,14 +279,14 @@ export default function LineItemRow({
                     <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Qty *</label>
                     <input
                         type="number"
-                        className="form-input font-black text-base text-[var(--text-primary)] bg-[var(--bg-input)] border-2 border-indigo-500/40 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+                        className="form-input no-spinner font-black text-center text-base text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-2 border-indigo-500 rounded-lg py-2 px-2 focus:ring-2 focus:ring-indigo-500 min-w-[70px]"
                         min="1"
                         step="1"
-                        value={item.quantity === 0 ? '' : item.quantity}
+                        value={item.quantity || 1}
                         disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => {
                             const val = e.target.value;
-                            onChange(index, { quantity: val === '' ? 1 : Number(val) });
+                            onChange(index, { quantity: val === '' ? 1 : Math.max(1, Number(val)) });
                         }}
                         required
                     />
@@ -278,7 +296,7 @@ export default function LineItemRow({
                 <div className="line-item-field line-item-tax">
                     <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Tax *</label>
                     <select
-                        className="form-input font-bold text-xs text-[var(--text-primary)] bg-[var(--bg-input)] border-2 border-purple-500/40 rounded-lg p-2 focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                        className="form-input font-black text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-2 border-purple-500 rounded-lg py-2 px-2 focus:ring-2 focus:ring-purple-500 cursor-pointer min-w-[135px]"
                         value={item.tax_id || ''}
                         disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { tax_id: e.target.value })}
@@ -290,8 +308,8 @@ export default function LineItemRow({
                             <option key={t.tax_id} value={t.tax_id} className="bg-slate-900 text-white font-medium">{t.tax_name} ({t.tax_percentage}%)</option>
                         ))}
                     </select>
-                    <div className="mt-1 text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-1 rounded border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
-                        <span>GST Tax:</span>
+                    <div className="mt-1 text-[11px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 px-2 py-1 rounded border border-indigo-300 dark:border-indigo-800 flex items-center justify-between min-w-[135px]">
+                        <span>GST ({selectedTaxRate}%):</span>
                         <span>₹{taxAmount.toFixed(2)}</span>
                     </div>
                     {item.tax_auto_corrected && item.tax_correction_note && (
