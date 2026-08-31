@@ -64,6 +64,7 @@ export enum Salesperson {
   Daksh = 'Daksh',
   Drishti = 'Drishti',
   Bhavana = 'Bhavana',
+  Others = 'Others',
 }
 
 export const SALESPERSONS = Object.values(Salesperson) as readonly Salesperson[];

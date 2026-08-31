@@ -108,12 +108,16 @@ export async function GET(request: NextRequest) {
 
     // First pass: compute all-time distinctions for badges & join date
     allOrders.forEach(order => {
-      const name = (order.salespersonName || '').trim();
-      if (!name || name === 'UNASSIGNED') return;
+      let name = (order.salespersonName || '').trim();
+      if (!name || name === 'UNASSIGNED') name = 'Others';
 
       const total = typeof order.invoiceTotal === 'number' ? order.invoiceTotal : 0;
       const rawDate = order.createdAt || order.invoiceDate || order.date || order.created_time || now;
       const oDate = new Date(rawDate);
+
+      if (name.toLowerCase() === 'tannu' && oDate < new Date('2026-08-01T00:00:00.000Z')) {
+        name = 'Others';
+      }
 
       if (!revenueMap[name]) {
         revenueMap[name] = {
@@ -141,8 +145,15 @@ export async function GET(request: NextRequest) {
 
     // Second pass: compute selected range revenue & orders
     filteredOrders.forEach(order => {
-      const name = (order.salespersonName || '').trim();
-      if (!name || name === 'UNASSIGNED') return;
+      let name = (order.salespersonName || '').trim();
+      if (!name || name === 'UNASSIGNED') name = 'Others';
+
+      const rawDate = order.createdAt || order.invoiceDate || order.date || order.created_time || now;
+      const oDate = new Date(rawDate);
+
+      if (name.toLowerCase() === 'tannu' && oDate < new Date('2026-08-01T00:00:00.000Z')) {
+        name = 'Others';
+      }
 
       const total = typeof order.invoiceTotal === 'number' ? order.invoiceTotal : 0;
 
