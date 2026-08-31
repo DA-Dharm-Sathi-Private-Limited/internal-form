@@ -1,6 +1,6 @@
 "use client";
 
-export type DateFilterType = "today" | "weekly" | "monthly" | "all" | "custom";
+export type DateFilterType = "all" | "today" | "weekly" | "monthly" | "yearly" | "custom";
 
 interface RevenueDateFilterProps {
   dateFilter: DateFilterType;
@@ -12,10 +12,11 @@ interface RevenueDateFilterProps {
 }
 
 const FILTERS: { key: DateFilterType; label: string }[] = [
+  { key: "all", label: "All Time (Lifetime)" },
   { key: "today", label: "Today" },
   { key: "weekly", label: "This Week" },
   { key: "monthly", label: "This Month" },
-  { key: "all", label: "Lifetime" },
+  { key: "yearly", label: "This Year" },
   { key: "custom", label: "Custom Range" },
 ];
 
@@ -34,9 +35,9 @@ export default function RevenueDateFilter({
           <button
             key={f.key}
             onClick={() => setDateFilter(f.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
               dateFilter === f.key
-                ? "bg-indigo-600 text-white font-bold shadow-sm"
+                ? "bg-indigo-600 text-white shadow-md scale-105"
                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
             }`}
           >

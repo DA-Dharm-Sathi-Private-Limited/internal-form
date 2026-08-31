@@ -190,6 +190,15 @@ export default function TrackRevenue() {
     });
   }
 
+  const filterLabels: Record<DateFilterType, string> = {
+    all: "Lifetime",
+    today: "Today's",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    yearly: "Yearly",
+    custom: "Custom Range",
+  };
+
   return (
     <div className="max-w-4xl mx-auto w-full">
       <div className="text-center mb-8">
@@ -215,7 +224,7 @@ export default function TrackRevenue() {
           totalRevenue={totalAllRevenue}
           totalOrders={totalAllOrders}
           salespersonCount={data.length}
-          summary={summary}
+          dateFilterLabel={filterLabels[dateFilter]}
         />
       )}
 
@@ -262,7 +271,7 @@ export default function TrackRevenue() {
                 {RANK_EMOJIS[idx] || `#${idx + 1}`}
               </div>
               <div className="flex-1">
-                <div className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2 flex-wrap">
+                <div className="text-lg font-bold text-gray-900 dark:text-white mb-0.5 flex items-center gap-2 flex-wrap">
                   <span>{sp.salespersonName}</span>
                   {sp.firstOrderDate && (
                     <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full font-normal">
@@ -270,28 +279,8 @@ export default function TrackRevenue() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                  <span>{sp.orderCount} order{sp.orderCount !== 1 ? "s" : ""}</span>
-                  {typeof sp.dailyRevenue === 'number' && (
-                    <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">
-                      Today: {formatCurrency(sp.dailyRevenue)}
-                    </span>
-                  )}
-                  {typeof sp.weeklyRevenue === 'number' && (
-                    <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-medium">
-                      Week: {formatCurrency(sp.weeklyRevenue)}
-                    </span>
-                  )}
-                  {typeof sp.monthlyRevenue === 'number' && (
-                    <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
-                      Month: {formatCurrency(sp.monthlyRevenue)}
-                    </span>
-                  )}
-                  {typeof sp.lifetimeRevenue === 'number' && (
-                    <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
-                      Lifetime: {formatCurrency(sp.lifetimeRevenue)}
-                    </span>
-                  )}
+                <div className="text-xs text-gray-500">
+                  {sp.orderCount} order{sp.orderCount !== 1 ? "s" : ""}
                 </div>
               </div>
               <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mr-4">
