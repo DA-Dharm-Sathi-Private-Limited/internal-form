@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Customer from '@/models/Customer';
+import Order from '@/models/Order';
 import { withError, fail } from '@/lib/api-handler';
 
 export const GET = withError(async (
@@ -10,12 +11,40 @@ export const GET = withError(async (
   const resolvedParams = await params;
   await connectDB();
 
-  const customer = await Customer.findOne({
+  let customer = await Customer.findOne({
     $or: [
       { customer_id: resolvedParams.id },
       { _id: resolvedParams.id }
     ]
   }).lean();
+
+  if (!customer) {
+    const prevOrder = await Order.findOne({
+      $or: [
+        { orderId: resolvedParams.id },
+        { 'customerDetails.phone': resolvedParams.id },
+        { 'customerDetails.customer_name': resolvedParams.id }
+      ]
+    }).sort({ createdAt: -1 }).lean();
+
+    if (prevOrder && prevOrder.customerDetails) {
+      const cd = prevOrder.customerDetails;
+      customer = {
+        customer_id: resolvedParams.id,
+        display_name: cd.customer_name || 'Customer',
+        phone: cd.phone || '',
+        email: cd.email || '',
+        billing_address: {
+          attention: cd.customer_name || '',
+          address: cd.address || '',
+          city: cd.city || '',
+          state: cd.state || '',
+          zip: cd.pincode || '',
+          country: cd.country || 'India'
+        }
+      } as any;
+    }
+  }
 
   if (customer) {
     return NextResponse.json({ customer }, { status: 200 });

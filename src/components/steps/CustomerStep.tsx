@@ -118,72 +118,48 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
         <CustomerSearch
           onSelect={async (customer) => {
             const KNOWN_CODES = ['+91', '+1', '+44', '+971', '+61', '+65', '+60', '+49'];
+            const cust = customer as Record<string, any>;
 
-            let rawPhone = ((customer as Customer & { mobile?: string, phone?: string }).mobile)
-              || ((customer as Customer & { mobile?: string, phone?: string }).phone)
-              || '';
-
-            let parsedCountryCode = '+91';
-            let parsedPhone = '';
+            let rawPhone = cust.mobile || cust.phone || '';
+            let addressLine = cust.billing_address?.address || cust.billing_address?.street || cust.address || '';
+            let zip = cust.billing_address?.zip || cust.billing_address?.pincode || cust.pincode || '';
+            let city = cust.billing_address?.city || cust.city || '';
+            let state = cust.billing_address?.state || cust.state || '';
 
             setNeedsAddressUpdate(false);
 
-            const prefilled = (customer as Customer & { _prefilled?: { address: string; pincode: string; city: string; state: string; phone: string } })._prefilled;
-
+            const prefilled = cust._prefilled;
             if (prefilled) {
-              updateForm({
-                customer_id: customer.customer_id,
-                customer_name: customer.display_name || '',
-                email: customer.email || '',
-                country_code: '+91',
-                phone: prefilled.phone,
-                astrologer_name: customer.display_name || '',
-                astrologer_number: prefilled.phone,
-                address: prefilled.address,
-                pincode: prefilled.pincode,
-                city: prefilled.city,
-                state: prefilled.state,
-                gst_treatment: customer.gst_treatment || 'consumer',
-                isPincodeServiceable: null,
-              });
-              if (prefilled.pincode.length === 6) {
-                checkPincodeServiceability(prefilled.pincode);
-              }
-              setNeedsAddressUpdate(false);
-              return;
-            }
+              addressLine = prefilled.address || addressLine;
+              zip = prefilled.pincode || zip;
+              city = prefilled.city || city;
+              state = prefilled.state || state;
+              if (prefilled.phone) rawPhone = prefilled.phone;
+            } else if (customer.customer_id) {
+              try {
+                const data = await customerService.get(customer.customer_id);
+                if (data.customer) {
+                  const c = data.customer as Record<string, unknown>;
+                  rawPhone = (c.mobile as string) || (c.phone as string) || rawPhone;
 
-            try {
-              const data = await customerService.get(customer.customer_id);
-              if (data.customer) {
-                const c = data.customer as Record<string, unknown>;
-                rawPhone = (c.mobile as string) || (c.phone as string) || rawPhone;
-
-                const billing_address = c.billing_address as Record<string, string> | undefined;
-                const addressLine = billing_address?.street2
-                  ? `${billing_address.address}\n${billing_address.street2}`
-                  : billing_address?.address || '';
-                const zip = billing_address?.zip || '';
-                const city = billing_address?.city || '';
-                const state = billing_address?.state || '';
-
-                const hasAnyAddress = !!(addressLine || zip || city || state);
-                const isIncompleteAddress = !addressLine || !zip || !city || !state;
-
-                if (hasAnyAddress) {
-                  updateForm({ address: addressLine, pincode: zip, city, state });
-                  if (zip && zip.length === 6) {
-                    checkPincodeServiceability(zip);
+                  const billing_address = c.billing_address as Record<string, string> | undefined;
+                  if (billing_address) {
+                    const fetchedAddress = billing_address.street2
+                      ? `${billing_address.address || billing_address.street || ''}\n${billing_address.street2}`
+                      : billing_address.address || billing_address.street || '';
+                    if (fetchedAddress) addressLine = fetchedAddress;
+                    if (billing_address.zip || billing_address.pincode) zip = billing_address.zip || billing_address.pincode;
+                    if (billing_address.city) city = billing_address.city;
+                    if (billing_address.state) state = billing_address.state;
                   }
-                  setNeedsAddressUpdate(isIncompleteAddress);
-                } else {
-                  setNeedsAddressUpdate(true);
-                  updateForm({ address: '', pincode: '', city: '', state: 'Delhi', isPincodeServiceable: null });
                 }
+              } catch (error) {
+                console.error('Failed to fetch customer details:', error);
               }
-            } catch (error) {
-              console.error('Failed to fetch full customer details:', error);
             }
+
+            let parsedCountryCode = '+91';
+            let parsedPhone = '';
 
             if (rawPhone) {
               const cleaned = '+' === rawPhone[0]
@@ -211,6 +187,8 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
               }
             }
 
+            const isIncompleteAddress = !addressLine || !zip || !city || !state;
+
             updateForm({
               customer_id: customer.customer_id,
               customer_name: customer.display_name || '',
@@ -219,8 +197,19 @@ export default function CustomerStep({ formData, updateForm, onNext }: Props) {
               phone: parsedPhone,
               astrologer_name: customer.display_name || '',
               astrologer_number: parsedPhone,
+              address: addressLine,
+              pincode: zip,
+              city: city,
+              state: state || 'Delhi',
               gst_treatment: customer.gst_treatment || 'consumer',
+              isPincodeServiceable: null,
             });
+
+            if (zip && zip.length === 6) {
+              checkPincodeServiceability(zip);
+            }
+
+            setNeedsAddressUpdate(isIncompleteAddress);
           }}
           onClear={() => {
             updateForm({ customer_id: '' });
