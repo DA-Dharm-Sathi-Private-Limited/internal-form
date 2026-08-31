@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createShipment } from '@/lib/delhivery';
+import { appendOrderToGoogleSheet } from '@/lib/google-sheets';
 import { withError, fail } from '@/lib/api-handler';
 
 export const POST = withError(async (request: NextRequest) => {
@@ -50,6 +51,23 @@ export const POST = withError(async (request: NextRequest) => {
     try {
       const { status, data } = await createShipment(processedShipment, pickup_location);
       results.push({ status, data });
+
+      // Automatically sync to Google Sheet on successful AWB generation
+      if (status === 200 && data?.packages?.[0]?.waybill) {
+        const waybill = data.packages[0].waybill;
+        appendOrderToGoogleSheet({
+          shippingPartner: 'Delhivery Courier',
+          invoiceNumber: processedShipment.order || processedShipment.seller_inv || waybill,
+          awb: waybill,
+          fromLocation: pickup_location,
+          toCustomer: processedShipment.name || 'Customer',
+          pincode: String(processedShipment.pin || ''),
+          city: processedShipment.city || '',
+          state: processedShipment.state || '',
+          poc: processedShipment.seller_name || 'Salesperson',
+          status: 'Manifested'
+        }).catch(err => console.error('[Google Sheet Auto-Sync Error]', err));
+      }
     } catch (error) {
       results.push({ status: 500, error: error instanceof Error ? error.message : 'Failed to create shipment' });
     }
