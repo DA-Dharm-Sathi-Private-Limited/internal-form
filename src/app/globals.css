@@ -601,17 +601,17 @@ input.no-spinner[type="number"]::-webkit-inner-spin-button {
 .line-item-fields {
   flex: 1;
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr 0.8fr 1fr 0.9fr 1.4fr 1.1fr 1fr;
+  grid-template-columns: 2fr 1.4fr 1fr 0.8fr 1fr 1.1fr 1.6fr 1.1fr 1fr;
   gap: 0.6rem;
   align-items: end;
 }
 
 .line-item-qty {
-  min-width: 75px;
+  min-width: 95px;
 }
 
 .line-item-tax {
-  min-width: 135px;
+  min-width: 155px;
 }
 
 .line-item-field label {

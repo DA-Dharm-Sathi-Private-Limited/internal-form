@@ -277,26 +277,44 @@ export default function LineItemRow({
 
                 <div className="line-item-field line-item-qty">
                     <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Qty *</label>
-                    <input
-                        type="number"
-                        className="form-input no-spinner font-black text-center text-base text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-2 border-indigo-500 rounded-lg py-2 px-2 focus:ring-2 focus:ring-indigo-500 min-w-[70px]"
-                        min="1"
-                        step="1"
-                        value={item.quantity || 1}
-                        disabled={readOnlyAllExceptCostPrice}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            onChange(index, { quantity: val === '' ? 1 : Math.max(1, Number(val)) });
-                        }}
-                        required
-                    />
+                    <div className="flex items-center border-2 border-indigo-500 rounded-lg bg-white dark:bg-slate-900 overflow-hidden shadow-sm min-w-[95px]">
+                        <button
+                            type="button"
+                            disabled={readOnlyAllExceptCostPrice}
+                            className="px-2 py-1.5 font-black text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm select-none disabled:opacity-50 border-r border-slate-300 dark:border-slate-700"
+                            onClick={() => onChange(index, { quantity: Math.max(1, (Number(item.quantity) || 1) - 1) })}
+                        >
+                            -
+                        </button>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            className="w-10 text-center font-black text-base text-slate-900 dark:text-white bg-transparent outline-none p-1 border-none focus:ring-0"
+                            value={item.quantity || 1}
+                            disabled={readOnlyAllExceptCostPrice}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                onChange(index, { quantity: val === '' ? 1 : Math.max(1, Number(val)) });
+                            }}
+                            required
+                        />
+                        <button
+                            type="button"
+                            disabled={readOnlyAllExceptCostPrice}
+                            className="px-2 py-1.5 font-black text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm select-none disabled:opacity-50 border-l border-slate-300 dark:border-slate-700"
+                            onClick={() => onChange(index, { quantity: (Number(item.quantity) || 1) + 1 })}
+                        >
+                            +
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tax selector — required, shown before Final Price so user picks tax first */}
                 <div className="line-item-field line-item-tax">
                     <label className="font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">Tax *</label>
                     <select
-                        className="form-input font-black text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-2 border-purple-500 rounded-lg py-2 px-2 focus:ring-2 focus:ring-purple-500 cursor-pointer min-w-[135px]"
+                        className="form-input font-black text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-2 border-purple-500 rounded-lg py-2 px-2.5 focus:ring-2 focus:ring-purple-500 cursor-pointer min-w-[155px]"
                         value={item.tax_id || ''}
                         disabled={readOnlyAllExceptCostPrice}
                         onChange={(e) => onChange(index, { tax_id: e.target.value })}
@@ -308,7 +326,7 @@ export default function LineItemRow({
                             <option key={t.tax_id} value={t.tax_id} className="bg-slate-900 text-white font-medium">{t.tax_name} ({t.tax_percentage}%)</option>
                         ))}
                     </select>
-                    <div className="mt-1 text-[11px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 px-2 py-1 rounded border border-indigo-300 dark:border-indigo-800 flex items-center justify-between min-w-[135px]">
+                    <div className="mt-1 text-[11px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 px-2 py-1 rounded border border-indigo-300 dark:border-indigo-800 flex items-center justify-between min-w-[155px]">
                         <span>GST ({selectedTaxRate}%):</span>
                         <span>₹{taxAmount.toFixed(2)}</span>
                     </div>
