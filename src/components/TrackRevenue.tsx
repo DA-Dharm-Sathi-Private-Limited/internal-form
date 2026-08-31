@@ -12,6 +12,7 @@ import RevenueOrderCard from "./RevenueOrderCard";
 interface SalespersonRevenue {
   salespersonName: string;
   totalRevenue: number;
+  dailyRevenue?: number;
   weeklyRevenue?: number;
   monthlyRevenue?: number;
   yearlyRevenue?: number;
@@ -22,6 +23,7 @@ interface SalespersonRevenue {
 }
 
 interface SummaryData {
+  totalDaily: number;
   totalWeekly: number;
   totalMonthly: number;
   totalYearly: number;
@@ -67,9 +69,6 @@ export default function TrackRevenue() {
       } else if (dateFilter === "monthly") {
         const monthStart = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1, 0, 0, 0) - (330 * 60 * 1000));
         params = { startDate: monthStart.toISOString(), endDate: todayEndIST.toISOString() };
-      } else if (dateFilter === "yearly") {
-        const yearStart = new Date(Date.UTC(istNow.getUTCFullYear(), 0, 1, 0, 0, 0) - (330 * 60 * 1000));
-        params = { startDate: yearStart.toISOString(), endDate: todayEndIST.toISOString() };
       } else if (dateFilter === "custom") {
         if (startDate) {
           const s = new Date(startDate);
@@ -271,8 +270,13 @@ export default function TrackRevenue() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                   <span>{sp.orderCount} order{sp.orderCount !== 1 ? "s" : ""}</span>
+                  {typeof sp.dailyRevenue === 'number' && (
+                    <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">
+                      Today: {formatCurrency(sp.dailyRevenue)}
+                    </span>
+                  )}
                   {typeof sp.weeklyRevenue === 'number' && (
                     <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-medium">
                       Week: {formatCurrency(sp.weeklyRevenue)}
@@ -283,9 +287,9 @@ export default function TrackRevenue() {
                       Month: {formatCurrency(sp.monthlyRevenue)}
                     </span>
                   )}
-                  {typeof sp.yearlyRevenue === 'number' && (
+                  {typeof sp.lifetimeRevenue === 'number' && (
                     <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
-                      Year: {formatCurrency(sp.yearlyRevenue)}
+                      Lifetime: {formatCurrency(sp.lifetimeRevenue)}
                     </span>
                   )}
                 </div>

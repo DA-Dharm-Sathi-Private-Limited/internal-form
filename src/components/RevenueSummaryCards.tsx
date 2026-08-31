@@ -7,6 +7,7 @@ interface RevenueSummaryCardsProps {
   totalOrders: number;
   salespersonCount: number;
   summary?: {
+    totalDaily: number;
     totalWeekly: number;
     totalMonthly: number;
     totalYearly: number;
@@ -27,6 +28,15 @@ export default function RevenueSummaryCards({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
             <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+              ☀️ Today
+            </span>
+            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+              {formatCurrency(summary.totalDaily)}
+            </span>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
+            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
               📅 This Week
             </span>
             <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -36,7 +46,7 @@ export default function RevenueSummaryCards({
 
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
             <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              📆 This Month (Aug)
+              📆 This Month
             </span>
             <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
               {formatCurrency(summary.totalMonthly)}
@@ -45,16 +55,7 @@ export default function RevenueSummaryCards({
 
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
             <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              🗓️ This Year (2026)
-            </span>
-            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-              {formatCurrency(summary.totalYearly)}
-            </span>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              👑 Lifetime Total
+              👑 Lifetime
             </span>
             <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
               {formatCurrency(summary.totalLifetime)}

@@ -1,6 +1,6 @@
 "use client";
 
-export type DateFilterType = "today" | "weekly" | "monthly" | "yearly" | "all" | "custom";
+export type DateFilterType = "today" | "weekly" | "monthly" | "all" | "custom";
 
 interface RevenueDateFilterProps {
   dateFilter: DateFilterType;
@@ -12,11 +12,10 @@ interface RevenueDateFilterProps {
 }
 
 const FILTERS: { key: DateFilterType; label: string }[] = [
-  { key: "all", label: "All Time (Lifetime)" },
   { key: "today", label: "Today" },
   { key: "weekly", label: "This Week" },
   { key: "monthly", label: "This Month" },
-  { key: "yearly", label: "This Year" },
+  { key: "all", label: "Lifetime" },
   { key: "custom", label: "Custom Range" },
 ];
 
