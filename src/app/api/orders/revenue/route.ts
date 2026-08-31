@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
         orderCount: data.orders.length,
         orders: data.orders,
       }))
-      .filter(sp => isFiltered ? sp.orderCount > 0 : sp.lifetimeRevenue > 0)
+      .filter(sp => sp.lifetimeRevenue > 0)
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
     return NextResponse.json({
