@@ -167,4 +167,7 @@ const OrderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+OrderSchema.index({ 'shipments.vendor': 1, status: 1 });
+OrderSchema.index({ status: 1, createdAt: -1 });
+
 export default mongoose.models.Order || mongoose.model('Order', OrderSchema);
