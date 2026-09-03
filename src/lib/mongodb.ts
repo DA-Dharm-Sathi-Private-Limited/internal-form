@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://manas_db_user:Bhatia%406635@cluster0.c8xvcnq.mongodb.net/test?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('Please define the MONGODB_URI environment variable inside .env.local or hosting configuration.');
+}
 
 // @ts-expect-error - mongoose global cache
 let cached = global.mongoose;
@@ -17,11 +21,11 @@ async function dbConnect() {
 
   if (!cached.promise) {
     const opts = {
-      serverSelectionTimeoutMS: 3000, // 3s fast timeout to prevent Vercel serverless function 504 timeouts
-      connectTimeoutMS: 3000,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
+    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((m) => {
       return m;
     }).catch((err) => {
       console.error('MongoDB connection error:', err);
