@@ -1,8 +1,20 @@
 import { NextRequest } from 'next/server';
 import Order from '@/models/Order';
-import { withDb, success } from '@/lib/api-handler';
+import { withDb, success, fail } from '@/lib/api-handler';
 
 export const POST = withDb(async (request: NextRequest) => {
+  // 1. Verify Webhook Authorization Token if configured
+  const webhookSecret = process.env.SHADOWFAX_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const authHeader = request.headers.get('authorization') || request.headers.get('x-shadowfax-token');
+    const paramToken = request.nextUrl.searchParams.get('secret');
+    const providedToken = authHeader?.replace(/^Bearer\s+/i, '') || paramToken;
+
+    if (!providedToken || providedToken !== webhookSecret) {
+      return fail('Unauthorized: Invalid or missing Shadowfax webhook token', 401);
+    }
+  }
+
   const body = await request.json();
   const { awb_number, order_id, status, event, current_location, rider_name, rider_contact } = body;
 
